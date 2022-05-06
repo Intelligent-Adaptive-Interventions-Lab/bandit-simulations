@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import invgamma
 from typing import Dict
-from tscontextual.types import TSContextualParams
+from tscontextual.parameters import TSContextualParams
 from datasets.contexts import ContextAllocateData
 
 # Draw thompson sample of (reg. coeff., variance) and also select the optimal action
@@ -27,9 +27,11 @@ def thompson_sampling_contextual(params: TSContextualParams, contexts: Dict[str,
 	# Store contextual variables
 	contextual_vars = parameters['contextual_variables']
 
+	assignment_data = {}
 	contextual_vars_dict = {}
 	for var in contextual_vars: 
-        contextual_vars_dict[var] = np.random.choice(contexts[var].values, size=1, p=contexts[var].allocations)
+		contextual_vars_dict[var] = np.random.choice(contexts[var].values, size=1, p=contexts[var].allocations)[0]
+		assignment_data[var] = contextual_vars_dict[var]
 
 	# Get current priors parameters (normal-inverse-gamma)
 	mean = parameters['coef_mean']
@@ -41,6 +43,15 @@ def thompson_sampling_contextual(params: TSContextualParams, contexts: Dict[str,
 	precesion_draw = invgamma.rvs(variance_a, 0, variance_b, size=1)
 	# Draw regression coefficients according to priors
 	coef_draw = np.random.multivariate_normal(mean, precesion_draw * cov)
+
+	assignment_data = assignment_data | {
+		"coef_mean": mean,
+		"coef_cov": cov,
+		"variance_a": variance_a,
+		"variance_b": variance_b,
+		"precesion_draw": list(precesion_draw),
+		"coef_draw": list(coef_draw)
+	}
 
 	## Generate all possible action combinations
 	# Initialize action set
@@ -66,31 +77,31 @@ def thompson_sampling_contextual(params: TSContextualParams, contexts: Dict[str,
 					new_possible.append(new_a)
 					all_possible_actions = new_possible
 
-	# Print entire action set
-	print('all possible actions: ' + str(all_possible_actions))
+	# # print entire action set
+	# print('all possible actions: ' + str(all_possible_actions))
 
 	## Calculate outcome for each action and find the best action
 	best_outcome = -np.inf
 	best_action = None
 
-	print('regression formula: ' + regression_formula)
+	# print('regression formula: ' + regression_formula)
 	# Itterate of all feasible actions
 	for action in all_possible_actions:
 		independent_vars = action.copy()
 		independent_vars.update(contextual_vars_dict)
 
 		# Compute expected reward given action
-		outcome = calculate_outcome(independent_vars,coef_draw, include_intercept, regression_formula)
+		outcome = calculate_outcome(independent_vars, coef_draw, include_intercept, regression_formula)
 
 		# Keep track of optimal (action, outcome)
 		if best_action is None or outcome > best_outcome:
 			best_outcome = outcome
 			best_action = action
 
-	# Print optimal action
-	print('best action: ' + str(best_action))
+	# # print optimal action
+	# print('best action: ' + str(best_action))
 
-	return best_action
+	return best_action, assignment_data
 
 
 # Check whether action is feasible (only one level of the action variables can be realized)
@@ -139,14 +150,18 @@ def calculate_outcome(var_dict, coef_list, include_intercept, formula):
 	# Split RHS of equation into variable list (context, action, interactions)
 	vars_list = list(map(str.strip, formula.split('~')[1].strip().split('+')))
 
+	# print(f"var_dict: {var_dict}")
+	# print(f"coef_list: {coef_list}")
+	# print(f"vars_list: {vars_list}")
+
 
 	# Add 1 for intercept in variable list if specified
 	if include_intercept:
 		vars_list.insert(0,1.)
 
 	# Raise assertion error if variable list different length then coeff list
-	#print(vars_list)
-	#print(coef_list)
+	## print(vars_list)
+	## print(coef_list)
 	assert(len(vars_list) == len(coef_list))
 
 	# Initialize outcome
@@ -155,15 +170,15 @@ def calculate_outcome(var_dict, coef_list, include_intercept, formula):
 	dummy_loops = 0
 	for k in range(20):
 		dummy_loops += 1
-	print(dummy_loops)
+	# print(dummy_loops)
 
-	print(str(type(coef_list)))
-	print(np.shape(coef_list))
+	# print(str(type(coef_list)))
+	# print(np.shape(coef_list))
 	coef_list = coef_list.tolist()
-	print("coef list length: " + str(len(coef_list)))
-	print("vars list length: " + str(len(vars_list)))
-	print("vars_list " + str(vars_list))
-	print("curr_coefs " + str(coef_list))
+	# print("coef list length: " + str(len(coef_list)))
+	# print("vars list length: " + str(len(vars_list)))
+	# print("vars_list " + str(vars_list))
+	# print("curr_coefs " + str(coef_list))
 
 	## Use variables and coeff list to compute expected reward
 	# Itterate over all (var, coeff) pairs from regresion model
@@ -191,11 +206,11 @@ def calculate_outcome(var_dict, coef_list, include_intercept, formula):
 			value = var_dict[var]
 
 		# Compute expected reward (hypothesized regression model)
-		print("value " + str(value) )
-		print("coefficient " + str(coef))
+		# print("value " + str(value) )
+		# print("coefficient " + str(coef))
 		outcome += coef * value
 		num_loops += 1
-		print("loop number: " + str(num_loops))
+		# print("loop number: " + str(num_loops))
 
-	print("Number of loops: " + str(num_loops))
+	# print("Number of loops: " + str(num_loops))
 	return outcome

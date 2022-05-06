@@ -1,0 +1,75 @@
+{
+    "numTrails": 1,
+    "numLearners": 100,
+    "arms": [
+        {
+            "action_variable": "is_a1",
+            "value": 1,
+            "name": "A1",
+            "implicit": false
+        },
+        {
+            "action_variable": "is_a2",
+            "value": 1,
+            "name": "A2",
+            "implicit": false
+        },
+        {
+            "action_variable": null,
+            "value": 0,
+            "name": "A3",
+            "implicit": true
+        }
+    ],
+    "contexts": [
+        {
+            "name": "C1",
+            "min_value": 0.0,
+            "max_value": 1.0,
+            "value_type": "BIN",
+            "sample_thres": 15,
+            "interaction": true,
+            "extra": true,
+            "values": [0.0, 1.0],
+            "allocations": [0.5, 0.5]
+        },
+        {
+            "name": "C2",
+            "min_value": 0.0,
+            "max_value": 5.0,
+            "value_type": "ORD",
+            "sample_thres": 15,
+            "interaction": true,
+            "extra": false,
+            "values": [0.0, 0.25, 0.5, 0.75, 1.0],
+            "allocations": [0.2, 0.2, 0.2, 0.2, 0.2]
+        },
+        {
+            "name": "C3",
+            "min_value": 0.0,
+            "max_value": 1.0,
+            "value_type": "CONT",
+            "sample_thres": 15,
+            "interaction": false,
+            "extra": true,
+            "values": [0.0, 0.1234, 0.3456, 0.5183, 0.6667, 0.7893, 0.9943, 1.0],
+            "allocations": [0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125, 0.125]
+        }
+    ],
+    "reward": {
+        "name": "R1",
+        "min_value": 1.0,
+        "max_value": 5.0,
+        "value_type": "ORD"
+    },
+    "parameters": {
+        "variance_a": 2, 
+        "variance_b": 1, 
+        "batch_size": 2, 
+        "uniform_threshold": 1,
+        "include_intercept": 1,
+        "regression_formula": null,
+        "true_estimate": "R1 ~ is_a1 + is_a2 + C1 + is_a1 * C1 + is_a2 * C1 + is_a1 * C2 + is_a2 * C2 + C3",
+        "true_coef_mean": [0.2, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    }
+}
