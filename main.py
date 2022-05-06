@@ -86,7 +86,8 @@ def simulate(config_path: str, output_path: str):
                 assignment_df, 
                 params.parameters["true_estimate"], 
                 params.parameters["true_coef_mean"], 
-                params.parameters["include_intercept"]
+                params.parameters["include_intercept"],
+                reward
             )
 
             if len(assignment_df.index) >= params.parameters["batch_size"]:
@@ -109,4 +110,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     os.makedirs(args.output, exist_ok=True)
 
-    simulate(args.config, f"{args.output}/outputs.csv")
+    simulate(args.config, f"{args.output}/link_outputs.csv")
