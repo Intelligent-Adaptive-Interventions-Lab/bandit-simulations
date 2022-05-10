@@ -11,13 +11,14 @@ from tscontextual.ts_contextual import thompson_sampling_contextual
 from tscontextual.parameters import TSContextualParams
 from tscontextual.generate_rewards import get_reward
 from metrics.metrics import evaluate
+from utils.clean import clean_df_from_csv
 
 
 def simulate(
     config_path: str, 
     output_path: str, 
     checkpoint_path: str = None
-):
+) -> None:
     configs_file = open(config_path)
     configs = json.load(configs_file)
 
@@ -106,14 +107,19 @@ def simulate(
                 # print(f"simulation_df: {simulation_df}")
 
         simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
-        simulation_df.to_csv(f"{output_path}/link_outputs.csv")
+
+        simulation_output_path = configs["simulation"]
+        simulation_df.to_csv(f"{output_path}/{simulation_output_path}.csv")
 
         evaluation_df = evaluate(simulation_df)
-        evaluation_df.to_csv(f"{output_path}/link_evaluation.csv")
+        evaluation_output_path = configs["evaluation"]
+        evaluation_df.to_csv(f"{output_path}/{evaluation_output_path}.csv")
     else:
         simulation_df = pd.read_csv(checkpoint_path)
+        simulation_df = clean_df_from_csv(simulation_df)
         evaluation_df = evaluate(simulation_df)
-        evaluation_df.to_csv(f"{output_path}/link_evaluation.csv")
+        evaluation_output_path = configs["evaluation"]
+        evaluation_df.to_csv(f"{output_path}/{evaluation_output_path}.csv")
 
 
 if __name__ == "__main__":

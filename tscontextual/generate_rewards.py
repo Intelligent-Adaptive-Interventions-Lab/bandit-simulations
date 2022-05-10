@@ -5,7 +5,13 @@ from typing import List, Dict
 from tscontextual.ts_contextual import calculate_outcome
 
 
-def get_reward(assignment_df: pd.DataFrame, true_estimate: str, true_coef_mean: List[float], include_intercept: int, reward: Dict) -> pd.DataFrame:
+def get_reward(
+    assignment_df: pd.DataFrame, 
+    true_estimate: str, 
+    true_coef_mean: List[float], 
+    include_intercept: int, 
+    reward: Dict
+) -> pd.DataFrame:
     formula = true_estimate.strip()
     vars_list = list(map(str.strip, formula.split('~')[1].strip().split('+')))
     reward_name = formula.split('~')[0].strip()

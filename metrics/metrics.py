@@ -2,12 +2,13 @@ import pandas as pd
 import numpy as np
 from scipy.stats import invgamma, t, sem
 
-from typing import List
-
-pd.options.mode.chained_assignment = None
+from typing import List, Tuple
 
 
-def mean_confidence_interval(samples, confidence=0.95):
+def mean_confidence_interval(
+    samples: List[float], 
+    confidence: float = 0.95
+) -> Tuple[float, float, float]:
     n = len(samples)
     m, se = np.mean(samples), sem(samples)
     h = se * t.ppf((1 + confidence) / 2., n-1)
@@ -30,26 +31,6 @@ def draw_samples(
 def evaluate(simulation_df: pd.DataFrame) -> pd.DataFrame:
     columns = ["coef_mean", "lower_ci", "upper_ci"]
     evaluation_df = pd.DataFrame(columns=columns)
-
-    simulation_df = simulation_df.dropna()
-
-    simulation_df.loc[:,"coef_mean"] = simulation_df["coef_mean"].apply(
-        lambda x: np.fromstring(
-            x.replace('\n','').replace('[','').replace(']','').strip(), 
-            sep=','
-        )
-    )
-
-    length = len(simulation_df["coef_mean"][0])
-
-    simulation_df.loc[:,"coef_cov"] = simulation_df["coef_cov"].apply(
-        lambda x: np.fromstring(
-            x.replace('\n','').replace('[','').replace(']','').strip(), 
-            sep=','
-        )
-    ).apply(
-        lambda x: x.reshape(length, length)
-    )
 
     latest_params = simulation_df.iloc[-1]
 

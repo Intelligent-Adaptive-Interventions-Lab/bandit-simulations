@@ -1,6 +1,8 @@
 {
     "numTrails": 1,
     "numLearners": 100,
+    "simulation": "sim1",
+    "evaluation": "eval1",
     "arms": [
         {
             "action_variable": "is_a1",

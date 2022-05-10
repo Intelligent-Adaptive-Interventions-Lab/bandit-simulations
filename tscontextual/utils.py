@@ -1,9 +1,14 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import invgamma
+from typing import Dict
 
 
-def create_design_matrix(input_df, formula, add_intercept = True):
+def create_design_matrix(
+    input_df: pd.DataFrame, 
+    formula: str, 
+    add_intercept: bool = True
+) -> pd.DataFrame:
     '''
     :param input_df:
     :param formula: for example "y ~ x0 + x1 + x2 + x0 * x1 + x1 * x2"
@@ -46,7 +51,14 @@ def create_design_matrix(input_df, formula, add_intercept = True):
 
 
 # Posteriors for beta and variance
-def posteriors(y, X, m_pre, V_pre, a1_pre, a2_pre):
+def posteriors(
+    y: np.ndarray, 
+    X: np.ndarray, 
+    m_pre: np.ndarray, 
+    V_pre: np.ndarray, 
+    a1_pre: float, 
+    a2_pre: float
+) -> Dict:
     #y = list of uotcomes
     #X = design matrix
     #priors input by users, but if no input then default

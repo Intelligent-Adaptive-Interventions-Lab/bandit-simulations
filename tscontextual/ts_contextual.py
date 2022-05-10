@@ -1,12 +1,15 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import invgamma
-from typing import Dict
+from typing import Dict, Tuple, List
 from tscontextual.parameters import TSContextualParams
 from datasets.contexts import ContextAllocateData
 
 # Draw thompson sample of (reg. coeff., variance) and also select the optimal action
-def thompson_sampling_contextual(params: TSContextualParams, contexts: Dict[str, ContextAllocateData]):
+def thompson_sampling_contextual(
+	params: TSContextualParams, 
+	contexts: Dict[str, ContextAllocateData]
+) -> Tuple[Dict, Dict]:
 	'''
 	thompson sampling policy with contextual information.
 	Outcome is estimated using bayesian linear regression implemented by NIG conjugate priors.
@@ -66,7 +69,7 @@ def thompson_sampling_contextual(params: TSContextualParams, contexts: Dict[str,
 		new_possible = []
 	    # Itterate over action set
 		for a in all_possible_actions:
-		# Itterate over value sets correspdong to action labels
+		# Itterate over value sets corresponding to action labels
 			for cur_a in cur_options:
 				new_a = a.copy()
 				new_a[cur] = cur_a
@@ -105,7 +108,7 @@ def thompson_sampling_contextual(params: TSContextualParams, contexts: Dict[str,
 
 
 # Check whether action is feasible (only one level of the action variables can be realized)
-def is_valid_action(action):
+def is_valid_action(action: Dict) -> bool:
 	'''
 	checks whether an action is valid, meaning, no more than one vars under same category are assigned 1
 	'''
@@ -136,7 +139,11 @@ def is_valid_action(action):
 
 # Compute expected reward given context and action of user
 # Inputs: (design matrix row as dict, coeff. vector, intercept, reg. eqn.)
-def calculate_outcome(var_dict, coef_list, include_intercept, formula):
+def calculate_outcome(
+	var_dict: Dict, 
+	coef_list: List, 
+	include_intercept: int, 
+	formula: str) -> float:
 	'''
 	:param var_dict: dict of all vars (actions + contextual) to their values
 	:param coef_list: coefficients for each term in regression
