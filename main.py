@@ -7,9 +7,8 @@ import json
 
 from datasets.arms import ArmData
 from datasets.contexts import ContextAllocateData
-from tscontextual.ts_contextual import thompson_sampling_contextual
-from tscontextual.parameters import TSContextualParams
-from tscontextual.generate_rewards import get_reward
+from datasets.bandits import Bandit
+from datasets.policies import PolicyFactory
 from metrics.metrics import evaluate
 from utils.clean import clean_df_from_csv
 
@@ -29,82 +28,53 @@ def simulate(
     contexts = list(configs["contexts"])
     reward = dict(configs["reward"])
 
-    terms = []
-    action_space = {}
-    actions = []
-    for arm in arms:
-        arm = dict(arm)
-        if arm["action_variable"] is not None and arm["action_variable"] not in action_space:
-            action_space[arm["action_variable"]] = [0, 1]
-            terms.append(arm["action_variable"])
-            actions.append(arm["action_variable"])
-    
-    arm_df = ArmData(actions, arms).arms
-    
-    contextual_variables = []
-    contexts_lst = {}
-    for context in contexts:
-        context = dict(context)
-        context_name = context["name"]
-        contextual_variables.append(context_name)
-        contexts_lst[context_name] = ContextAllocateData(context["values"], context["allocations"])
-        if context['extra'] is True:
-            terms.append(context_name)
-        if context['interaction'] is True:
-            for name in actions:
-                terms.append(f"{name} * {context_name}")
+    # Initialize bandit settings.
+    bandit = Bandit(reward, arms, contexts)
 
+    # Initialize policy parameters.
     init_params = dict(configs["parameters"])
-    length = len(terms) + 1 if init_params["include_intercept"] == 1 else len(terms)
-    init_params["coef_cov"] = np.eye(length, dtype=float).tolist()
-    init_params["coef_mean"] = np.zeros(length, dtype=float).tolist()
-    init_params["action_space"] = action_space
-    init_params["contextual_variables"] = contextual_variables
 
-    reward_name = reward["name"]
-    init_params["outcome_variable"] = reward_name
-    if "regression_formula" in init_params and init_params["regression_formula"] is None:
-        init_params["regression_formula"] = f"{reward_name} ~ {' + '.join(terms)}"
-    
-    print("regression_formula: {}".format(init_params["regression_formula"]))
+    # Choose corresponding policy from policy factory.
+    tscontextual_policy = PolicyFactory(init_params, bandit).get_policy()
 
     if checkpoint_path is None:
-        params = TSContextualParams(init_params)
-        
-        columns = ["learner", "arm", reward_name] + actions + contextual_variables + ["coef_cov", "coef_mean", "variance_a", "variance_b", "precesion_draw", "coef_draw", "update_batch"]
+        # Get columns of simulation dataframe
+        columns = tscontextual_policy.columns
+
+        # Initialize simulation dataframe
         simulation_df = pd.DataFrame(columns=columns)
-        update_count = 0
         for trail in range(numTrails):
+            # Initialize one update batch of datapoints
             assignment_df = pd.DataFrame(columns=columns)
             for learner in range(horizon):
-                new_learner_df = {}
-
+                # Register a new learner.
                 new_learner = f"learner_{learner:03d}_{trail:03d}"
-                new_learner_df["learner"] = new_learner
 
-                best_action, assignment_data = thompson_sampling_contextual(params, contexts_lst)
-                best_arm_row = arm_df.loc[(arm_df[list(best_action)] == pd.Series(best_action)).all(axis=1)]
-                new_learner_df["arm"] = str(best_arm_row["name"][0])
-                new_learner_df = new_learner_df | assignment_data | best_action
+                # Initialize one dataframe for the new learner.
+                new_learner_df = pd.DataFrame(columns=columns)
 
-                assignment_df = pd.concat([assignment_df, pd.DataFrame.from_records([new_learner_df])])
-                assignment_df = get_reward(
-                    assignment_df, 
-                    params.parameters["true_estimate"], 
-                    params.parameters["true_coef_mean"], 
-                    params.parameters["include_intercept"],
-                    reward
-                )
+                # Get datapoints (e.g. assigned arm, generated contexts) for the new learner.
+                new_learner_data = tscontextual_policy.run(new_learner)
 
-                if len(assignment_df.index) >= params.parameters["batch_size"]:
-                    assignment_df["update_batch"] = update_count
+                # Merge to new learner dataframe.
+                new_learner_df = pd.concat([new_learner_df, pd.DataFrame.from_records([new_learner_data])])
+
+                # Update rewards for the new learner.
+                new_learner_df = tscontextual_policy.get_reward(new_learner_df)
+
+                # Merge to the update batch.
+                assignment_df = pd.concat([assignment_df, new_learner_df])
+
+                # Check if parameters should update.
+                if len(assignment_df.index) >= tscontextual_policy.params.parameters["batch_size"]:
+                    # Update parameters.
+                    assignment_df = tscontextual_policy.update_params(assignment_df)
+
+                    # Merge to simulation dataframe.
                     simulation_df = pd.concat([simulation_df, assignment_df])
-                    value_col = [reward_name] + actions + contextual_variables
-                    params.update_params(assignment_df[value_col], reward_name)
+
+                    # Re-initialize the update batch of datapoints.
                     assignment_df = pd.DataFrame(columns=columns)
-                    update_count += 1
-                
-                # print(f"simulation_df: {simulation_df}")
 
         simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
 

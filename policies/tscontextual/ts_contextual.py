@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from scipy.stats import invgamma
 from typing import Dict, Tuple, List
-from tscontextual.parameters import TSContextualParams
+from policies.tscontextual.parameters import TSContextualParams
 from datasets.contexts import ContextAllocateData
 
 # Draw thompson sample of (reg. coeff., variance) and also select the optimal action
@@ -15,6 +15,8 @@ def thompson_sampling_contextual(
 	Outcome is estimated using bayesian linear regression implemented by NIG conjugate priors.
 	map dict to version
 	get the current user's context as a dict
+
+	Math Reference: https://github.com/Intelligent-Adaptive-Interventions-Lab/mooclet-engine/blob/master/documentation/Bayes%20Regression%20and%20Thompson%20Sampling.pdf
 	'''
 	# Store normal-inverse-gamma parameters
 	parameters = params.parameters

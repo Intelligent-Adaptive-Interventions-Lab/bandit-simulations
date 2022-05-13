@@ -65,6 +65,7 @@
         "value_type": "ORD"
     },
     "parameters": {
+        "type": "TSCONTEXTUAL",
         "variance_a": 2, 
         "variance_b": 1, 
         "batch_size": 2, 
