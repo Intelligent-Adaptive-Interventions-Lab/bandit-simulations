@@ -5,6 +5,7 @@ from typing import List, Dict
 
 from datasets.arms import ArmData
 from datasets.contexts import ContextAllocateData
+from datasets.rewards import RewardData
 
 
 class Bandit:
@@ -15,8 +16,8 @@ class Bandit:
         arms: Dict, 
         contexts: Dict = None
     ) -> None:
-        # Initialize reward dictionary.
-        self.reward = reward
+        # Initialize reward dictionary to a RewardData object.
+        self.reward = RewardData(reward)
 
         # Initialize default regression equation terms.
         self.terms = []

@@ -42,11 +42,11 @@ class TSContextualPolicy(Policy):
         self.configs["coef_mean"] = np.zeros(length, dtype=float).tolist()
         self.configs["action_space"] = self.bandit.action_space
         self.configs["contextual_variables"] = self.bandit.get_contextual_variables()
-        self.configs["outcome_variable"] = self.bandit.reward["name"]
+        self.configs["outcome_variable"] = self.bandit.reward.name
 
         # Initialize regression equation if this is not provided.
         if "regression_formula" not in self.configs or self.configs["regression_formula"] is None:
-            self.configs["regression_formula"] = "{} ~ {}".format(self.bandit.reward["name"], ' + '.join(terms))
+            self.configs["regression_formula"] = "{} ~ {}".format(self.bandit.reward.name, ' + '.join(terms))
         
         print("regression_formula: {}".format(self.configs["regression_formula"]))
 
@@ -54,7 +54,7 @@ class TSContextualPolicy(Policy):
         self.params = TSContextualParams(self.configs)
 
         # Initialize columns of simulation dataframe.
-        self.columns = ["learner", "arm", self.bandit.reward["name"]] + \
+        self.columns = ["learner", "arm", self.bandit.reward.name] + \
             self.bandit.get_actions() + self.bandit.get_contextual_variables() + \
             ["coef_cov", "coef_mean", "variance_a", "variance_b", "precesion_draw", "coef_draw", "update_batch"]
         
@@ -89,7 +89,7 @@ class TSContextualPolicy(Policy):
         vars_list = list(map(str.strip, formula.split('~')[1].strip().split('+')))
         reward_name = formula.split('~')[0].strip()
 
-        assert reward_name == reward["name"]
+        assert reward_name == reward.name
 
         # Get regression equation terms from true_estimate.
         terms = []
@@ -102,16 +102,14 @@ class TSContextualPolicy(Policy):
         terms = list(set(terms))
 
         # Get scale of error.
-        err_scale = (reward["max_value"] - reward["min_value"]) / 3
+        err_scale = (reward.max_value - reward.min_value) / 3
 
         # Update reward for the new learner dataframe.
         for index, row in new_learner_df.iterrows():
             row_terms = row[terms]
             error = np.random.normal(0, err_scale, 1)[0]
             true_reward = calculate_outcome(row_terms.to_dict(), np.array(true_coef_mean), include_intercept, true_estimate) + error
-            if reward["value_type"] != "CONT":
-                true_reward = np.floor(true_reward)
-            row[reward_name] = np.clip(true_reward, reward["min_value"], reward["max_value"])
+            row[reward_name] = reward.get_reward(true_reward)
 
         return new_learner_df
     
@@ -120,8 +118,8 @@ class TSContextualPolicy(Policy):
         assignment_df["update_batch"] = self.update_count
 
         # Update parameters.
-        value_col = [self.bandit.reward["name"]] + self.bandit.get_actions() + self.bandit.get_contextual_variables()
-        self.params.update_params(assignment_df[value_col], self.bandit.reward["name"])
+        value_col = [self.bandit.reward.name] + self.bandit.get_actions() + self.bandit.get_contextual_variables()
+        self.params.update_params(assignment_df[value_col], self.bandit.reward.name)
 
         # Update the indicator.
         self.update_count += 1
