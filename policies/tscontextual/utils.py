@@ -51,6 +51,7 @@ def create_design_matrix(
 
 
 # Posteriors for beta and variance
+# Math Reference: https://github.com/Intelligent-Adaptive-Interventions-Lab/mooclet-engine/blob/master/documentation/Bayes%20Regression%20and%20Thompson%20Sampling.pdf
 def posteriors(
     y: np.ndarray, 
     X: np.ndarray, 

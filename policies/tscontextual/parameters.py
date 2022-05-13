@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import Dict, List
 
-from tscontextual.utils import create_design_matrix, posteriors
+from policies.tscontextual.utils import create_design_matrix, posteriors
 
 class TSContextualParams:
     parameters: Dict

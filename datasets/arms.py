@@ -11,13 +11,10 @@ class ArmData:
         self.arms = pd.DataFrame(columns=columns)
 
         init_arms = dict.fromkeys(actions, 0)
-        # print(f"init_arms: {init_arms}")
 
         for arm in arms:
             arm_row = init_arms.copy()
             arm_row[arm["action_variable"]] = arm["value"]
             arm_row["name"] = arm["name"]
             self.arms = pd.concat([self.arms, pd.DataFrame.from_records([arm_row])])
-        
-        # print(f"actions: {self.arms}")
     
