@@ -9,7 +9,7 @@ from datasets.arms import ArmData
 from datasets.contexts import ContextAllocateData
 from datasets.bandits import Bandit
 from datasets.policies import PolicyFactory
-from metrics.metrics import evaluate
+from metrics.evaluator import EvaluatorFactory
 from utils.clean import clean_df_from_csv
 
 
@@ -25,7 +25,7 @@ def simulate(
     horizon = configs["numLearners"]
 
     arms = list(configs["arms"])
-    contexts = list(configs["contexts"])
+    contexts = list(configs["contexts"]) if "contexts" in configs else None
     reward = dict(configs["reward"])
 
     # Initialize bandit settings.
@@ -35,11 +35,11 @@ def simulate(
     init_params = dict(configs["parameters"])
 
     # Choose corresponding policy from policy factory.
-    tscontextual_policy = PolicyFactory(init_params, bandit).get_policy()
+    policy = PolicyFactory(init_params, bandit).get_policy()
 
     if checkpoint_path is None:
         # Get columns of simulation dataframe
-        columns = tscontextual_policy.columns
+        columns = policy.columns
 
         # Initialize simulation dataframe
         simulation_df = pd.DataFrame(columns=columns)
@@ -54,21 +54,21 @@ def simulate(
                 new_learner_df = pd.DataFrame(columns=columns)
 
                 # Get datapoints (e.g. assigned arm, generated contexts) for the new learner.
-                new_learner_data = tscontextual_policy.run(new_learner)
+                new_learner_data = policy.run(new_learner)
 
                 # Merge to new learner dataframe.
                 new_learner_df = pd.concat([new_learner_df, pd.DataFrame.from_records([new_learner_data])])
 
                 # Update rewards for the new learner.
-                new_learner_df = tscontextual_policy.get_reward(new_learner_df)
+                new_learner_df = policy.get_reward(new_learner_df)
 
                 # Merge to the update batch.
                 assignment_df = pd.concat([assignment_df, new_learner_df])
 
                 # Check if parameters should update.
-                if len(assignment_df.index) >= tscontextual_policy.params.parameters["batch_size"]:
+                if len(assignment_df.index) >= policy.params.parameters["batch_size"]:
                     # Update parameters.
-                    assignment_df = tscontextual_policy.update_params(assignment_df)
+                    assignment_df = policy.update_params(assignment_df)
 
                     # Merge to simulation dataframe.
                     simulation_df = pd.concat([simulation_df, assignment_df])
@@ -76,20 +76,24 @@ def simulate(
                     # Re-initialize the update batch of datapoints.
                     assignment_df = pd.DataFrame(columns=columns)
 
+        print("arm data:")
+        print(bandit.arm_data.arms)
         simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
 
         simulation_output_path = configs["simulation"]
-        simulation_df.to_csv(f"{output_path}/{simulation_output_path}.csv")
-
-        evaluation_df = evaluate(simulation_df)
-        evaluation_output_path = configs["evaluation"]
-        evaluation_df.to_csv(f"{output_path}/{evaluation_output_path}.csv")
+        os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
+        simulation_df.to_csv(f"{output_path}/{simulation_output_path}/results.csv")
     else:
         simulation_df = pd.read_csv(checkpoint_path)
         simulation_df = clean_df_from_csv(simulation_df)
-        evaluation_df = evaluate(simulation_df)
-        evaluation_output_path = configs["evaluation"]
-        evaluation_df.to_csv(f"{output_path}/{evaluation_output_path}.csv")
+
+    # Evaluate
+    evaluator = EvaluatorFactory(init_params, simulation_df).get_evaluator()
+    evaluation_output_path = configs["evaluation"]
+    os.makedirs(f"{output_path}/{evaluation_output_path}", exist_ok=True)
+    os.makedirs(f"{output_path}/{evaluation_output_path}/metrics", exist_ok=True)
+    for metric in list(evaluator.metrics.keys()):
+        evaluator.metrics[metric].to_csv(f"{output_path}/{evaluation_output_path}/metrics/{metric}.csv")
 
 
 if __name__ == "__main__":

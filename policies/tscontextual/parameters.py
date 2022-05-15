@@ -1,13 +1,14 @@
 import pandas as pd
 from typing import Dict, List
 
+from policies.types import PolicyParameter
 from policies.tscontextual.utils import create_design_matrix, posteriors
 
-class TSContextualParams:
+class TSContextualParameter(PolicyParameter):
     parameters: Dict
     
     def __init__(self, initParams: Dict) -> None:
-        self.parameters = initParams
+        super().__init__(initParams)
     
     def update_params(self, values: pd.DataFrame, reward_name: str) -> None:
         design_matrix = create_design_matrix(

@@ -1,0 +1,37 @@
+{
+    "numTrails": 1,
+    "numLearners": 100,
+    "simulation": "sample_tspostdiff_simulation",
+    "evaluation": "sample_tspostdiff_evaluation",
+    "arms": [
+        {
+            "action_variable": "is_a1",
+            "value": 1,
+            "name": "A1",
+            "implicit": false
+        },
+        {
+            "action_variable": "is_a1",
+            "value": 0,
+            "name": "A2",
+            "implicit": false
+        }
+    ],
+    "reward": {
+        "name": "R1",
+        "min_value": 1.0,
+        "max_value": 5.0,
+        "value_type": "ORD",
+        "normalize": true
+    },
+    "parameters": {
+        "type": "TSPOSTDIFF",
+        "batch_size": 2, 
+        "uniform_threshold": 1,
+        "tspostdiff_thresh": 0.2,
+        "true_arm_probs": {
+            "A1": 0.4,
+            "A2": 0.6
+        }
+    }
+}
