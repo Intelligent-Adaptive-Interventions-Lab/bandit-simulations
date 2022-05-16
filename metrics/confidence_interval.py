@@ -28,7 +28,7 @@ def draw_samples(
     return coef_draws
 
 
-def evaluate(simulation_df: pd.DataFrame) -> pd.DataFrame:
+def estimate_confidence_interval(simulation_df: pd.DataFrame) -> pd.DataFrame:
     columns = ["coef_mean", "lower_ci", "upper_ci"]
     evaluation_df = pd.DataFrame(columns=columns)
 

@@ -24,9 +24,9 @@ class Bandit:
 
         # Initialize arms in two types: 
         #   (1) action_space: a dict with keys of action variables and values of [0, 1].
-        #   (2) _arm_data: a ArmData object with a dataframe called "arms" with columns of action variables and row of arm names.
+        #   (2) arm_data: a ArmData object with a dataframe called "arms" with columns of action variables and row of arm names.
         self.action_space = {}
-        self._arm_data = self._init_arms(arms) # This method will update "terms".
+        self.arm_data = self._init_arms(arms) # This method will update "terms".
 
         # Initialize contextual variables:
         #   contexts_dict: a dict with keys of contextual variables and values of ContextAllocateData.
@@ -55,9 +55,6 @@ class Bandit:
                     self.terms.append(f"{name} * {context_name}")
         
         return contexts_dict
-
-    def get_arm_df(self) -> pd.DataFrame:
-        return self._arm_data.arms
     
     def get_actions(self) -> List:
         return list(self.action_space.keys())

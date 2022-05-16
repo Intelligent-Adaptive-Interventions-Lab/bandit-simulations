@@ -2,12 +2,12 @@ import pandas as pd
 import numpy as np
 from scipy.stats import invgamma
 from typing import Dict, Tuple, List
-from policies.tscontextual.parameters import TSContextualParams
+from policies.tscontextual.parameters import TSContextualParameter
 from datasets.contexts import ContextAllocateData
 
 # Draw thompson sample of (reg. coeff., variance) and also select the optimal action
 def thompson_sampling_contextual(
-	params: TSContextualParams, 
+	params: TSContextualParameter, 
 	contexts: Dict[str, ContextAllocateData]
 ) -> Tuple[Dict, Dict]:
 	'''
