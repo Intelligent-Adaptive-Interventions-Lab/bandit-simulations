@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import invgamma
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 from policies.tscontextual.parameters import TSContextualParameter
 from datasets.contexts import ContextAllocateData
 
@@ -21,10 +21,14 @@ def thompson_sampling_contextual(
 	# Store normal-inverse-gamma parameters
 	parameters = params.parameters
 
-	# Store regression equation string
-	regression_formula = parameters['regression_formula']
 	# Action space, assumed to be a json
 	action_space = parameters['action_space']
+
+	# Burn-in size
+	uniform_threshold = parameters["uniform_threshold"]
+
+	# Store regression equation string
+	regression_formula = parameters['regression_formula']
 
 	# Include intercept can be true or false
 	include_intercept = parameters['include_intercept']
@@ -44,16 +48,33 @@ def thompson_sampling_contextual(
 	variance_a = parameters['variance_a']
 	variance_b = parameters['variance_b']
 
+	assignment_data = assignment_data | {
+		"coef_mean": mean,
+		"coef_cov": cov,
+		"variance_a": variance_a,
+		"variance_b": variance_b
+	}
+
+	# UR Cold Start
+	if uniform_threshold != 0:
+		# Decrease the burn-in size by 1
+		parameters["uniform_threshold"] -= 1
+		
+		# Uniform Randomly choose an arm and get the corresponding action space
+		action_variables = list(action_space.keys())
+		choose_ur = np.random.choice(len(action_variables) + 1)
+		best_action = dict.fromkeys(action_variables, 0)
+		if choose_ur != len(action_variables):
+			best_action[action_variables[choose_ur]] = 1
+		
+		return best_action, assignment_data
+
 	# Draw variance of errors
 	precesion_draw = invgamma.rvs(variance_a, 0, variance_b, size=1)
 	# Draw regression coefficients according to priors
 	coef_draw = np.random.multivariate_normal(mean, precesion_draw * cov)
 
 	assignment_data = assignment_data | {
-		"coef_mean": mean,
-		"coef_cov": cov,
-		"variance_a": variance_a,
-		"variance_b": variance_b,
 		"precesion_draw": list(precesion_draw),
 		"coef_draw": list(coef_draw)
 	}

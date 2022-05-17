@@ -49,7 +49,7 @@ class TopTwoTSPolicy(Policy):
         self.params = TopTwoTSParameter(self.configs)
 
         # Initialize columns of simulation dataframe.
-        self.columns = ["learner", "arm", self.bandit.reward.name] + \
+        self.columns = ["learner", "ur_coldstart", "arm", self.bandit.reward.name] + \
             self.bandit.get_actions() + columns + ["update_batch"]
         
         # Initialize the indicator of update batch.
@@ -58,6 +58,7 @@ class TopTwoTSPolicy(Policy):
     def run(self, new_learner: str) -> pd.DataFrame:
         new_learner_df = {}
         new_learner_df["learner"] = new_learner
+        new_learner_df["ur_coldstart"] = int(self.params.is_burn_in())
 
         # Get best action and datapoints (e.g. assigned arm, generated contexts) for the new learner.
         best_action_name, assignment_data = top_two_thompson_sampling(self.params)
@@ -154,7 +155,7 @@ class TSPostDiffPolicy(Policy):
         self.params = TSPostDiffParameter(self.configs)
 
         # Initialize columns of simulation dataframe.
-        self.columns = ["learner", "arm", self.bandit.reward.name] + \
+        self.columns = ["learner", "ur_coldstart", "arm", self.bandit.reward.name] + \
             self.bandit.get_actions() + columns + ["update_batch"]
         
         # Initialize the indicator of update batch.
@@ -163,6 +164,7 @@ class TSPostDiffPolicy(Policy):
     def run(self, new_learner: str) -> pd.DataFrame:
         new_learner_df = {}
         new_learner_df["learner"] = new_learner
+        new_learner_df["ur_coldstart"] = int(self.params.is_burn_in())
 
         # Get best action and datapoints (e.g. assigned arm, generated contexts) for the new learner.
         best_action_name, assignment_data = thompson_sampling_postdiff(self.params)
@@ -266,7 +268,7 @@ class TSContextualPolicy(Policy):
         self.params = TSContextualParameter(self.configs)
 
         # Initialize columns of simulation dataframe.
-        self.columns = ["learner", "arm", self.bandit.reward.name] + \
+        self.columns = ["learner", "ur_coldstart", "arm", self.bandit.reward.name] + \
             self.bandit.get_actions() + self.bandit.get_contextual_variables() + columns + \
             ["coef_cov", "coef_mean", "variance_a", "variance_b", "precesion_draw", "coef_draw", "update_batch"]
         
@@ -276,6 +278,7 @@ class TSContextualPolicy(Policy):
     def run(self, new_learner: str) -> pd.DataFrame:
         new_learner_df = {}
         new_learner_df["learner"] = new_learner
+        new_learner_df["ur_coldstart"] = int(self.params.is_burn_in())
 
         # Get best action and datapoints (e.g. assigned arm, generated contexts) for the new learner.
         best_action, assignment_data = thompson_sampling_contextual(self.params, self.bandit.contexts_dict)
