@@ -5,8 +5,6 @@ import pandas as pd
 import numpy as np
 import json
 
-from tqdm import tqdm, tqdm_notebook
-
 from datasets.arms import ArmData
 from datasets.contexts import ContextAllocateData
 from datasets.bandits import Bandit
@@ -20,7 +18,12 @@ def simulate(
     output_path: str, 
     checkpoint_path: str = None,
     notebook_mode: bool = False
-) -> None:    
+) -> None:
+    if notebook_mode:
+        from tqdm.notebook import tqdm
+    else:
+        from tqdm import tqdm
+
     os.makedirs(output_path, exist_ok=True)
 
     configs_file = open(config_path)
@@ -48,22 +51,10 @@ def simulate(
 
         # Initialize simulation dataframe
         simulation_df = pd.DataFrame(columns=columns)
-
-        if notebook_mode:
-            trail_tqdm = tqdm_notebook(range(numTrails), desc='Trails')
-        else: 
-            trail_tqdm = tqdm(range(numTrails), desc='Trails')
-
-        for trail in trail_tqdm:
+        for trail in tqdm(range(numTrails), desc='Trails'):
             # Initialize one update batch of datapoints
             assignment_df = pd.DataFrame(columns=columns)
-
-            if notebook_mode:
-                learner_tqdm = tqdm_notebook(range(horizon), desc='Horizons')
-            else: 
-                learner_tqdm = tqdm(range(horizon), desc='Horizons')
-
-            for learner in learner_tqdm:
+            for learner in tqdm(range(horizon), desc='Horizons'):
                 # Register a new learner.
                 new_learner = f"learner_{learner:03d}_{trail:03d}"
 
