@@ -7,12 +7,34 @@ from policies.tspostdiff.parameters import TSPostDiffParameter
 
 
 def thompson_sampling_postdiff(params: TSPostDiffParameter) -> Tuple[Dict, Dict]:
+    parameters = params.parameters
+
     # A dict of versions to successes and failures e.g.:
 	# {arm1: {success: 1, failure: 1}, arm2: {success: 1, failure: 1}, ...}
-    priors = params.parameters["priors"]
+    priors = parameters["priors"]
+
+    # Burn-in size
+    uniform_threshold = parameters["uniform_threshold"]
     
     # Threshold for TS PostDiff.
-    tspostdiff_thresh = params.parameters["tspostdiff_thresh"]
+    tspostdiff_thresh = parameters["tspostdiff_thresh"]
+
+    assignment_data = {}
+    arm_names = list(priors.keys())
+
+    # UR Cold Start
+    if uniform_threshold != 0:
+		# Decrease the burn-in size by 1
+        parameters["uniform_threshold"] -= 1
+		
+		# Uniform randomly picking an arm.
+        best_action_name = choice(arm_names)
+        
+        for arm in arm_names:
+            assignment_data[f"{arm} Success".replace(" ", "_").lower()] = priors[arm]["success"]
+            assignment_data[f"{arm} Failure".replace(" ", "_").lower()] = priors[arm]["failure"]
+            
+        return best_action_name, assignment_data
     
     # Drawing samples from beta discributions for two arms.
     arm_values = list(priors.values())
@@ -21,9 +43,6 @@ def thompson_sampling_postdiff(params: TSPostDiffParameter) -> Tuple[Dict, Dict]
     
     # Absolute difference between two samples
     diff = abs(arm_beta_1 - arm_beta_2)
-
-    assignment_data = {}
-    arm_names = list(priors.keys())
     if diff < tspostdiff_thresh:
         # Uniform randomly picking an arm.
         best_action_name = choice(arm_names)
