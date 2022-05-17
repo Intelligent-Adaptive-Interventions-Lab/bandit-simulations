@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import json
 
+from tqdm import tqdm, tqdm_notebook
+
 from datasets.arms import ArmData
 from datasets.contexts import ContextAllocateData
 from datasets.bandits import Bandit
@@ -16,8 +18,11 @@ from utils.clean import clean_df_from_csv
 def simulate(
     config_path: str, 
     output_path: str, 
-    checkpoint_path: str = None
-) -> None:
+    checkpoint_path: str = None,
+    notebook_mode: bool = False
+) -> None:    
+    os.makedirs(output_path, exist_ok=True)
+
     configs_file = open(config_path)
     configs = json.load(configs_file)
 
@@ -43,10 +48,22 @@ def simulate(
 
         # Initialize simulation dataframe
         simulation_df = pd.DataFrame(columns=columns)
-        for trail in range(numTrails):
+
+        if notebook_mode:
+            trail_tqdm = tqdm_notebook(range(numTrails), desc='Trails')
+        else: 
+            trail_tqdm = tqdm(range(numTrails), desc='Trails')
+
+        for trail in trail_tqdm:
             # Initialize one update batch of datapoints
             assignment_df = pd.DataFrame(columns=columns)
-            for learner in range(horizon):
+
+            if notebook_mode:
+                learner_tqdm = tqdm_notebook(range(horizon), desc='Horizons')
+            else: 
+                learner_tqdm = tqdm(range(horizon), desc='Horizons')
+
+            for learner in learner_tqdm:
                 # Register a new learner.
                 new_learner = f"learner_{learner:03d}_{trail:03d}"
 
@@ -97,14 +114,18 @@ def simulate(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True, help="the input path of simulation configs")
-    parser.add_argument("--output", required=True, help="the output path of simulation results")
-    parser.add_argument("--checkpoint", required=False, help="the checkpoint path of simulation results")
-    args = parser.parse_args()
-    os.makedirs(args.output, exist_ok=True)
+    import fire
 
-    if args.checkpoint:
-        simulate(args.config, args.output, args.checkpoint)
-    else:
-        simulate(args.config, args.output)
+    fire.Fire()
+
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("--config", required=True, help="the input path of simulation configs")
+    # parser.add_argument("--output", required=True, help="the output path of simulation results")
+    # parser.add_argument("--checkpoint", required=False, help="the checkpoint path of simulation results")
+    # args = parser.parse_args()
+    # os.makedirs(args.output, exist_ok=True)
+
+    # if args.checkpoint:
+    #     simulate(args.config, args.output, args.checkpoint)
+    # else:
+    #     simulate(args.config, args.output)
