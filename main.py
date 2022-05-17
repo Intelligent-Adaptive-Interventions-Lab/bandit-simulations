@@ -84,8 +84,8 @@ def simulate(
                     # Re-initialize the update batch of datapoints.
                     assignment_df = pd.DataFrame(columns=columns)
 
-        print("arm data:")
-        print(bandit.arm_data.arms)
+        # print("arm data:")
+        # print(bandit.arm_data.arms)
         simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
 
         simulation_output_path = configs["simulation"]
