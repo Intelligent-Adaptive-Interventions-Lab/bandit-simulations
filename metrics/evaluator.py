@@ -15,6 +15,12 @@ class Evaluator:
         self.metrics = {}
 
 
+class TopTwoTSEvaluator(Evaluator):
+
+    def __init__(self, simulation_df: pd.DataFrame) -> None:
+        super().__init__(simulation_df)
+
+
 class TSPostDiffEvaluator(Evaluator):
 
     def __init__(self, simulation_df: pd.DataFrame) -> None:
@@ -42,6 +48,8 @@ class EvaluatorFactory:
             self.evaluator = TSContextualEvaluator(simulation_df)
         elif policy_configs["type"] == PolicyType.TSPOSTDIFF.name:
             self.evaluator = TSPostDiffEvaluator(simulation_df)
+        elif policy_configs["type"] == PolicyType.TOPTWOTS.name:
+            self.evaluator = TopTwoTSEvaluator(simulation_df)
     
     def get_evaluator(self) -> Union[TSPostDiffEvaluator, TSContextualEvaluator]:
         return self.evaluator

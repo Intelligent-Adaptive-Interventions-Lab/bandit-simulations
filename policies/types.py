@@ -6,6 +6,7 @@ from typing import Dict
 class PolicyType(Enum):
     TSCONTEXTUAL = "TSCONTEXTUAL"
     TSPOSTDIFF = "TSPOSTDIFF"
+    TOPTWOTS = "TOPTWOTS"
 
 
 class PolicyParameter:
