@@ -29,6 +29,6 @@ __Note:__ If you are running this code under [Jupyter Notebook](https://jupyter.
 To run simulations for different policy settings, run the following command from the root directory to this repository:
 
 ```bash
-python main.py --config_path=<path_to_your_configs_file> --output_path=<path_to_your_outputs> --checkpoint_path=<path_to_your_checkpoints>
+python main.py simulate --config_path=<path_to_your_configs_file> --output_path=<path_to_your_outputs> --checkpoint_path=<path_to_your_checkpoints>
 ```
 This command will write simulation results and evaluation results under two directory to `<path_to_your_outputs>`.
