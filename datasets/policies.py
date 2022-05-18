@@ -262,7 +262,7 @@ class TSContextualPolicy(Policy):
         if "regression_formula" not in self.configs or self.configs["regression_formula"] is None:
             self.configs["regression_formula"] = "{} ~ {}".format(self.bandit.reward.name, ' + '.join(terms))
         
-        # print("regression_formula: {}".format(self.configs["regression_formula"]))
+        print("regression_formula: {}".format(self.configs["regression_formula"]))
 
         # Initialize parameters.
         self.params = TSContextualParameter(self.configs)

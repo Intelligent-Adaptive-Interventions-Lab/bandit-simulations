@@ -19,10 +19,12 @@ def simulate(
     checkpoint_path: str = None,
     notebook_mode: bool = False
 ) -> None:
+    from tqdm import tqdm
+    
     if notebook_mode:
-        from tqdm.notebook import tqdm
-    else:
-        from tqdm import tqdm
+        from functools import partial
+        tqdm = partial(tqdm, position=0, leave=True)
+        pd.options.display.max_columns = None   
 
     os.makedirs(output_path, exist_ok=True)
 
@@ -84,8 +86,8 @@ def simulate(
                     # Re-initialize the update batch of datapoints.
                     assignment_df = pd.DataFrame(columns=columns)
 
-        # print("arm data:")
-        # print(bandit.arm_data.arms)
+        print("arm data:")
+        print(bandit.arm_data.arms)
         simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
 
         simulation_output_path = configs["simulation"]
