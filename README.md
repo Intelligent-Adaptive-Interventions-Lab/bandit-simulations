@@ -21,6 +21,11 @@ Detailed code of Traditional Bandit can be accessed through the following link [
 ### Install packages
 * This code supports Python 3.9+
 * `pip install -r requirements.txt`
+* Someitmes installation can occur via the wrong python version if pip is already associated with a python version:
+  * if you run pip install and continue to run into 'package not found' issues try
+  * python3.9 -m pip install <PacakgeName>
+  * pip itself is written in python so you can choose the version of python that runs pip and 
+    for which packages are installed with the above command
 
 ## How To Run?
 __Note:__ If you are running this code under [Jupyter Notebook](https://jupyter.org/)/[Google Colab](https://colab.research.google.com/) environments, you should include `--notebook_mode=True` to all following commands.

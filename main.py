@@ -20,7 +20,9 @@ def simulate(
     notebook_mode: bool = False
 ) -> None:
     from tqdm import tqdm
-    
+   
+    np.random.seed(seed=42) 
+  
     if notebook_mode:
         from functools import partial
         tqdm = partial(tqdm, position=0, leave=True)
