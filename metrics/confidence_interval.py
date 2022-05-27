@@ -49,11 +49,17 @@ def draw_samples(
     return coef_draws
 
 
-def estimate_confidence_interval(simulation_df: pd.DataFrame) -> pd.DataFrame:
-    columns = ["coef_mean", "lower_ci", "upper_ci"]
+def estimate_confidence_interval(simulation_df: pd.DataFrame, formula: str) -> pd.DataFrame:
+    columns = ["term", "coef_mean", "lower_bound", "upper_bound"]
     evaluation_df = pd.DataFrame(columns=columns)
 
     latest_params = simulation_df.iloc[-1]
+
+    formula = formula.strip()
+    all_vars_str = formula.split('~')[1].strip()
+    dependent_var = formula.split('~')[0].strip()
+    vars_list = all_vars_str.split('+')
+    vars_list = ["INTERCEPT"] + list(map(str.strip, vars_list))
 
     mean = np.asarray(latest_params['coef_mean'])
     cov = np.asarray(latest_params['coef_cov'])
@@ -66,9 +72,10 @@ def estimate_confidence_interval(simulation_df: pd.DataFrame) -> pd.DataFrame:
         samples = coef_draws[sample_ind]
         sample_coef_mean, sample_lower_ci, sample_upper_ci = mean_confidence_interval_sem(samples)
         sample_evaluation = {
+            "term": vars_list[sample_ind],
             "coef_mean": float(sample_coef_mean), 
-            "lower_ci": float(sample_lower_ci), 
-            "upper_ci": float(sample_upper_ci)
+            "lower_bound": float(sample_lower_ci), 
+            "upper_bound": float(sample_upper_ci)
         }
         evaluation_df = pd.concat([evaluation_df, pd.DataFrame.from_records([sample_evaluation])])
 
