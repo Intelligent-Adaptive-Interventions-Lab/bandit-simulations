@@ -18,12 +18,12 @@ def simulate(
     output_path: str, 
     checkpoint_path: str = None,
     notebook_mode: bool = False,
-    set_random: bool = True,
+    set_random: bool = False,
     random_seed: int = 42
 ) -> None:
     from tqdm import tqdm
    
-    if set_random:
+    if not set_random:
         np.random.seed(seed=random_seed) 
   
     if notebook_mode:
