@@ -5,6 +5,7 @@ from typing import Dict, Union
 from datasets.policies import Policy
 from policies.types import PolicyType
 from metrics.confidence_interval import estimate_confidence_interval
+from metrics.wald_test import perfrom_wald_test
 
 
 class Evaluator:
@@ -22,12 +23,24 @@ class TopTwoTSEvaluator(Evaluator):
 
     def __init__(self, simulation_df: pd.DataFrame, policy: Policy) -> None:
         super().__init__(simulation_df, policy)
+        self.metrics = {
+            "wald_test": self._test_wald()
+        }
+    
+    def _test_wald(self) -> pd.DataFrame:
+        return perfrom_wald_test(self.simulation_df, self.policy)
 
 
 class TSPostDiffEvaluator(Evaluator):
 
     def __init__(self, simulation_df: pd.DataFrame, policy: Policy) -> None:
         super().__init__(simulation_df, policy)
+        self.metrics = {
+            "wald_test": self._test_wald()
+        }
+    
+    def _test_wald(self) -> pd.DataFrame:
+        return perfrom_wald_test(self.simulation_df, self.policy)
 
 
 class TSContextualEvaluator(Evaluator):
