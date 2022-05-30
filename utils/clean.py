@@ -5,6 +5,12 @@ pd.options.mode.chained_assignment = None
 
 
 def clean_df_from_csv(simulation_df: pd.DataFrame) -> pd.DataFrame:
+    if "precesion_draw" in simulation_df:
+        simulation_df = simulation_df.drop(columns=["precesion_draw"])
+    
+    if "coef_draw" in simulation_df:
+        simulation_df = simulation_df.drop(columns=["coef_draw"])
+
     simulation_df = simulation_df.dropna()
 
     simulation_df.loc[:,"coef_mean"] = simulation_df["coef_mean"].apply(

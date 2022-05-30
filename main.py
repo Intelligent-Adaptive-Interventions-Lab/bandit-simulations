@@ -17,10 +17,15 @@ def simulate(
     config_path: str, 
     output_path: str, 
     checkpoint_path: str = None,
-    notebook_mode: bool = False
+    notebook_mode: bool = False,
+    set_random: bool = False,
+    random_seed: int = 42
 ) -> None:
     from tqdm import tqdm
-    
+   
+    if not set_random:
+        np.random.seed(seed=random_seed) 
+  
     if notebook_mode:
         from functools import partial
         tqdm = partial(tqdm, position=0, leave=True)
@@ -98,7 +103,7 @@ def simulate(
         simulation_df = clean_df_from_csv(simulation_df)
 
     # Evaluate
-    evaluator = EvaluatorFactory(init_params, simulation_df).get_evaluator()
+    evaluator = EvaluatorFactory(simulation_df, policy).get_evaluator()
     evaluation_output_path = configs["evaluation"]
     os.makedirs(f"{output_path}/{evaluation_output_path}", exist_ok=True)
     os.makedirs(f"{output_path}/{evaluation_output_path}/metrics", exist_ok=True)
