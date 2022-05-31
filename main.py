@@ -112,7 +112,7 @@ def simulate(
                 # Update rewards for the new learner.
                 # Copy reward values if policy is not unique in rewards.
                 if not is_unique_reward:
-                    new_learner_df[policy.get_reward_column_name()] = simulation_df.loc[trail * horizon + learner, policy.get_reward_column_name()]
+                    new_learner_df.loc[0, policy.get_reward_column_name()] = simulation_df.loc[trail * horizon + learner, policy.get_reward_column_name()]
                     new_learner_df = new_learner_df.rename(index={0: trail * horizon + learner})
                 else:
                     new_learner_df = policy.get_reward(new_learner_df)
@@ -133,6 +133,16 @@ def simulate(
 
                     # Re-initialize the update batch of datapoints.
                     assignment_df = pd.DataFrame(columns=columns)
+        
+        # Concate the remaining assignment dataframe to the simulation dataframe.
+        if len(assignment_df.index) > 0:
+            assignment_df[policy.get_udpate_batch_column_name()] = policy.update_count
+
+            # Merge to simulation dataframe.
+            if not is_unique_reward:
+                simulation_df = simulation_df.fillna(assignment_df)
+            else:
+                simulation_df = pd.concat([simulation_df, assignment_df])
 
         print("{} arm data:".format(policy.get_name()))
         print(policy.bandit.arm_data.arms)
