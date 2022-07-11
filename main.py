@@ -43,7 +43,10 @@ def simulate(
     contexts = list(configs["contexts"]) if "contexts" in configs else None
     reward = dict(configs["reward"])
 
-    all_params = list(configs["parameters"])
+    if type(configs["parameters"]) == dict:
+        all_params =  list([configs["parameters"]])
+    else:
+        all_params = list(configs["parameters"])
     all_policies = []
     for init_params in all_params:
         # Initialize bandit settings.
