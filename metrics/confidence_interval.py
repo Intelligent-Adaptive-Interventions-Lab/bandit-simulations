@@ -5,6 +5,15 @@ from scipy.stats import invgamma, t, sem
 
 from typing import List, Tuple
 
+def mean_confidence_interval_quantile(
+    samples: List[float], 
+    confidence: float = 0.95
+) -> Tuple[float, float, float]:
+    m = np.mean(samples)
+    lower = np.quantile(np.asarray(samples), (1 - confidence) / 2.)
+    upper = np.quantile(np.asarray(samples), confidence + (1 - confidence) / 2.)
+    
+    return m, lower, upper
 
 def mean_confidence_interval_sem(
     samples: List[float], 
@@ -70,7 +79,7 @@ def estimate_confidence_interval(simulation_df: pd.DataFrame, formula: str) -> p
 
     for sample_ind in range(coef_draws.shape[0]):
         samples = coef_draws[sample_ind]
-        sample_coef_mean, sample_lower_ci, sample_upper_ci = mean_confidence_interval_sem(samples)
+        sample_coef_mean, sample_lower_ci, sample_upper_ci = mean_confidence_interval_quantile(samples)
         sample_evaluation = {
             "term": vars_list[sample_ind],
             "coef_mean": float(sample_coef_mean), 

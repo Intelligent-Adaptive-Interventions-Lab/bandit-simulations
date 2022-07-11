@@ -15,13 +15,47 @@ from policies.tscontextual.ts_contextual import calculate_outcome
 
 
 class Policy:
+    configs: Dict
+    bandit: Bandit
+    reward_generate_plan: List
     
     def __init__(self, policy_configs: Dict, bandit: Bandit) -> None:
         self.configs = policy_configs
         self.bandit = bandit
+        self.reward_generate_plan = []
     
     def get_type(self) -> str:
         return self.configs["type"]
+    
+    def get_name(self) -> str:
+        return self.configs["name"]
+    
+    def is_unique_reward(self) -> bool:
+        return self.configs["unique_reward"]
+    
+    def is_unique_contexts(self) -> bool:
+        if self.get_type() != PolicyType.TSCONTEXTUAL.name:
+            return False
+        return self.configs["unique_contexts"]
+    
+    def get_learner_column_name(self) -> str:
+        return "learner"
+    
+    def get_burn_in_column_name(self) -> str:
+        return "uniform_threshold"
+    
+    def get_arm_column_name(self) -> str:
+        return "arm"
+    
+    def get_reward_column_name(self) -> str:
+        return self.bandit.reward.name
+    
+    def get_udpate_batch_column_name(self) -> str:
+        return "update_batch"
+    
+    def get_reward_generate_plan(self) -> str:
+        parameter_subset = {key: self.configs[key] for key in self.reward_generate_plan}
+        return str(parameter_subset)
 
 
 class TopTwoTSPolicy(Policy):
@@ -49,22 +83,28 @@ class TopTwoTSPolicy(Policy):
         self.params = TopTwoTSParameter(self.configs)
 
         # Initialize columns of simulation dataframe.
-        self.columns = ["learner", "ur_coldstart", "arm", self.bandit.reward.name] + \
-            self.bandit.get_actions() + columns + ["update_batch"]
+        self.columns = [
+            self.get_learner_column_name(), 
+            self.get_burn_in_column_name(), 
+            self.get_arm_column_name(), 
+            self.get_reward_column_name()
+        ] + self.bandit.get_actions() + columns + [self.get_udpate_batch_column_name()]
         
         # Initialize the indicator of update batch.
         self.update_count = 0
+
+        # Initialize the parameter names which are used for generating rewards.
+        self.reward_generate_plan = [self.get_burn_in_column_name(), "true_arm_probs"]
     
-    def run(self, new_learner: str) -> pd.DataFrame:
-        new_learner_df = {}
-        new_learner_df["learner"] = new_learner
-        new_learner_df["ur_coldstart"] = int(self.params.is_burn_in())
+    def run(self, new_learner: str, new_learner_df: Dict={}) -> pd.DataFrame:
+        new_learner_df[self.get_learner_column_name()] = new_learner
+        new_learner_df[self.get_burn_in_column_name()] = int(self.params.is_burn_in())
 
         # Get best action and datapoints (e.g. assigned arm, generated contexts) for the new learner.
         best_action_name, assignment_data = top_two_thompson_sampling(self.params)
 
         # Record the arm name from the best action and action dataframe.
-        new_learner_df["arm"] = best_action_name
+        new_learner_df[self.get_arm_column_name()] = best_action_name
 
         # Update arm count to arm dataframe.
         arm_count = self.bandit.arm_data.get_from_arm_name(best_action_name, "count")
@@ -76,7 +116,7 @@ class TopTwoTSPolicy(Policy):
             assignment_data[f"{action_name} Count".replace(" ", "_").lower()] = row["count"]
 
         # Get the action space for the best arm.
-        best_action = self.bandit.arm_data.get_action_space_from_name(new_learner_df["arm"])
+        best_action = self.bandit.arm_data.get_action_space_from_name(new_learner_df[self.get_arm_column_name()])
 
         # Merge to a complete datapoints collection.
         new_learner_df = new_learner_df | assignment_data | best_action
@@ -89,7 +129,7 @@ class TopTwoTSPolicy(Policy):
 
         # Update reward for the new learner dataframe.
         for index, row in new_learner_df.iterrows():
-            arm_name = row["arm"]
+            arm_name = row[self.get_arm_column_name()]
             true_reward = np.random.binomial(reward.max_value - reward.min_value, true_arm_probs[arm_name]) + reward.min_value
             row[reward.name] = reward.get_reward(true_reward)
         
@@ -97,15 +137,15 @@ class TopTwoTSPolicy(Policy):
     
     def update_params(self, assignment_df: pd.DataFrame) -> pd.DataFrame:
         # Record update batch indicator.
-        assignment_df["update_batch"] = self.update_count
+        assignment_df[self.get_udpate_batch_column_name()] = self.update_count
 
         reward = self.bandit.reward
         arm_names = self.bandit.arm_data.arms["name"].tolist()
 
         for arm_name in arm_names:
             # Get reward sum and reward count for each arm.
-            sum_rewards = float(sum(assignment_df[assignment_df["arm"] == arm_name][reward.name]))
-            count_rewards = float(len(assignment_df[assignment_df["arm"] == arm_name].index))
+            sum_rewards = float(sum(assignment_df[assignment_df[self.get_arm_column_name()] == arm_name][reward.name]))
+            count_rewards = float(len(assignment_df[assignment_df[self.get_arm_column_name()] == arm_name].index))
 
             # Scale-up reward sum if reward is normalized.
             if reward.is_normalize:
@@ -155,22 +195,28 @@ class TSPostDiffPolicy(Policy):
         self.params = TSPostDiffParameter(self.configs)
 
         # Initialize columns of simulation dataframe.
-        self.columns = ["learner", "ur_coldstart", "arm", self.bandit.reward.name] + \
-            self.bandit.get_actions() + columns + ["update_batch"]
+        self.columns = [
+            self.get_learner_column_name(), 
+            self.get_burn_in_column_name(), 
+            self.get_arm_column_name(), 
+            self.get_reward_column_name()
+        ] + self.bandit.get_actions() + columns + [self.get_udpate_batch_column_name()]
         
         # Initialize the indicator of update batch.
         self.update_count = 0
+
+        # Initialize the parameter names which are used for generating rewards.
+        self.reward_generate_plan = [self.get_burn_in_column_name(), "true_arm_probs"]
     
-    def run(self, new_learner: str) -> pd.DataFrame:
-        new_learner_df = {}
-        new_learner_df["learner"] = new_learner
-        new_learner_df["ur_coldstart"] = int(self.params.is_burn_in())
+    def run(self, new_learner: str, new_learner_df: Dict={}) -> pd.DataFrame:
+        new_learner_df[self.get_learner_column_name()] = new_learner
+        new_learner_df[self.get_burn_in_column_name()] = int(self.params.is_burn_in())
 
         # Get best action and datapoints (e.g. assigned arm, generated contexts) for the new learner.
         best_action_name, assignment_data = thompson_sampling_postdiff(self.params)
 
         # Record the arm name from the best action and action dataframe.
-        new_learner_df["arm"] = best_action_name
+        new_learner_df[self.get_arm_column_name()] = best_action_name
 
         # Update arm count to arm dataframe.
         arm_count = self.bandit.arm_data.get_from_arm_name(best_action_name, "count")
@@ -182,7 +228,7 @@ class TSPostDiffPolicy(Policy):
             assignment_data[f"{action_name} Count".replace(" ", "_").lower()] = row["count"]
 
         # Get the action space for the best arm.
-        best_action = self.bandit.arm_data.get_action_space_from_name(new_learner_df["arm"])
+        best_action = self.bandit.arm_data.get_action_space_from_name(new_learner_df[self.get_arm_column_name()])
 
         # Merge to a complete datapoints collection.
         new_learner_df = new_learner_df | assignment_data | best_action
@@ -195,7 +241,7 @@ class TSPostDiffPolicy(Policy):
 
         # Update reward for the new learner dataframe.
         for index, row in new_learner_df.iterrows():
-            arm_name = row["arm"]
+            arm_name = row[self.get_arm_column_name()]
             true_reward = np.random.binomial(reward.max_value - reward.min_value, true_arm_probs[arm_name]) + reward.min_value
             row[reward.name] = reward.get_reward(true_reward)
         
@@ -203,15 +249,15 @@ class TSPostDiffPolicy(Policy):
     
     def update_params(self, assignment_df: pd.DataFrame) -> pd.DataFrame:
         # Record update batch indicator.
-        assignment_df["update_batch"] = self.update_count
+        assignment_df[self.get_udpate_batch_column_name()] = self.update_count
 
         reward = self.bandit.reward
         arm_names = self.bandit.arm_data.arms["name"].tolist()
 
         for arm_name in arm_names:
             # Get reward sum and reward count for each arm.
-            sum_rewards = float(sum(assignment_df[assignment_df["arm"] == arm_name][reward.name]))
-            count_rewards = float(len(assignment_df[assignment_df["arm"] == arm_name].index))
+            sum_rewards = float(sum(assignment_df[assignment_df[self.get_arm_column_name()] == arm_name][reward.name]))
+            count_rewards = float(len(assignment_df[assignment_df[self.get_arm_column_name()] == arm_name].index))
 
             # Scale-up reward sum if reward is normalized.
             if reward.is_normalize:
@@ -262,29 +308,49 @@ class TSContextualPolicy(Policy):
         if "regression_formula" not in self.configs or self.configs["regression_formula"] is None:
             self.configs["regression_formula"] = "{} ~ {}".format(self.bandit.reward.name, ' + '.join(terms))
         
-        print("regression_formula: {}".format(self.configs["regression_formula"]))
+        print("Policy {} regression_formula: {}".format(self.get_name(), self.configs["regression_formula"]))
 
         # Initialize parameters.
         self.params = TSContextualParameter(self.configs)
 
         # Initialize columns of simulation dataframe.
-        self.columns = ["learner", "ur_coldstart", "arm", self.bandit.reward.name] + \
-            self.bandit.get_actions() + self.bandit.get_contextual_variables() + columns + \
-            ["coef_cov", "coef_mean", "variance_a", "variance_b", "precesion_draw", "coef_draw", "update_batch"]
+        self.columns = [
+            self.get_learner_column_name(), 
+            self.get_burn_in_column_name(), 
+            self.get_arm_column_name(), 
+            self.get_reward_column_name()
+        ] + self.bandit.get_actions() + self.bandit.get_contextual_variables() + columns + \
+        self.get_parameter_column_names() + [self.get_udpate_batch_column_name()]
         
         # Initialize the indicator of update batch.
         self.update_count = 0
+
+        # Initialize the parameter names which are used for generating rewards.
+        self.reward_generate_plan = [self.get_burn_in_column_name(), "true_estimate", "true_coef_mean", "include_intercept"]
     
-    def run(self, new_learner: str) -> pd.DataFrame:
-        new_learner_df = {}
-        new_learner_df["learner"] = new_learner
-        new_learner_df["ur_coldstart"] = int(self.params.is_burn_in())
+    def get_contexts(self, new_learner_dict: Dict={}) -> Dict:
+        for var in self.bandit.contexts_dict:
+            new_learner_dict[var] = np.random.choice(self.bandit.contexts_dict[var].values, size=1, p=self.bandit.contexts_dict[var].allocations)[0]
+        
+        return new_learner_dict
+
+    def get_parameter_column_names(self) -> List[str]:
+        return ["coef_cov", "coef_mean", "variance_a", "variance_b", "precesion_draw", "coef_draw"]
+    
+    def run(self, new_learner: str, new_learner_df: Dict={}) -> pd.DataFrame:
+        # Generate contexts
+        if not new_learner_df:
+            new_learner_df = self.get_contexts(new_learner_df)
+        context_dict = {key: new_learner_df[key] for key in self.bandit.get_contextual_variables()}
+
+        new_learner_df[self.get_learner_column_name()] = new_learner
+        new_learner_df[self.get_burn_in_column_name()] = int(self.params.is_burn_in())
 
         # Get best action and datapoints (e.g. assigned arm, generated contexts) for the new learner.
-        best_action, assignment_data = thompson_sampling_contextual(self.params, self.bandit.contexts_dict)
+        best_action, assignment_data = thompson_sampling_contextual(self.params, context_dict)
 
         # Record the arm name from the best action and action dataframe.
-        new_learner_df["arm"] = self.bandit.arm_data.get_from_action_space(best_action, "name")
+        new_learner_df[self.get_arm_column_name()] = self.bandit.arm_data.get_from_action_space(best_action, "name")
         arm_count = self.bandit.arm_data.get_from_action_space(best_action, "count")
         self.bandit.arm_data.update_from_action_space(best_action, "count", arm_count + 1)
         
@@ -334,7 +400,7 @@ class TSContextualPolicy(Policy):
     
     def update_params(self, assignment_df: pd.DataFrame) -> pd.DataFrame:
         # Record update batch indicator.
-        assignment_df["update_batch"] = self.update_count
+        assignment_df[self.get_udpate_batch_column_name()] = self.update_count
 
         # Update parameters.
         value_col = [self.bandit.reward.name] + self.bandit.get_actions() + self.bandit.get_contextual_variables()

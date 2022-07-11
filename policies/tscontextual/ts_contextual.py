@@ -8,7 +8,7 @@ from datasets.contexts import ContextAllocateData
 # Draw thompson sample of (reg. coeff., variance) and also select the optimal action
 def thompson_sampling_contextual(
 	params: TSContextualParameter, 
-	contexts: Dict[str, ContextAllocateData]
+	contextual_vars_dict: Dict[str, float]
 ) -> Tuple[Dict, Dict]:
 	'''
 	thompson sampling policy with contextual information.
@@ -37,10 +37,10 @@ def thompson_sampling_contextual(
 	contextual_vars = parameters['contextual_variables']
 
 	assignment_data = {}
-	contextual_vars_dict = {}
-	for var in contextual_vars: 
-		contextual_vars_dict[var] = np.random.choice(contexts[var].values, size=1, p=contexts[var].allocations)[0]
-		assignment_data[var] = contextual_vars_dict[var]
+	# contextual_vars_dict = {}
+	# for var in contextual_vars: 
+	# 	contextual_vars_dict[var] = np.random.choice(contexts[var].values, size=1, p=contexts[var].allocations)[0]
+	# 	assignment_data[var] = contextual_vars_dict[var]
 
 	# Get current priors parameters (normal-inverse-gamma)
 	mean = parameters['coef_mean']
