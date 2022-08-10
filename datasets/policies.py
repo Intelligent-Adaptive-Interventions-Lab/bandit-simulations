@@ -330,7 +330,7 @@ class TSContextualPolicy(Policy):
     
     def get_contexts(self, new_learner_dict: Dict={}) -> Dict:
         for var in self.bandit.contexts_dict:
-            new_learner_dict[var] = np.random.choice(self.bandit.contexts_dict[var].values, size=1, p=self.bandit.contexts_dict[var].allocations)[0]
+            new_learner_dict[var] = self.bandit.contexts_dict[var].get_rvs()
         
         return new_learner_dict
 
@@ -386,14 +386,17 @@ class TSContextualPolicy(Policy):
                 terms.append(var)
         terms = list(set(terms))
 
-        # Get scale of error.
-        err_scale = (reward.max_value - reward.min_value) / 3
-
         # Update reward for the new learner dataframe.
         for index, row in new_learner_df.iterrows():
             row_terms = row[terms]
-            error = np.random.normal(0, err_scale, 1)[0]
-            true_reward = calculate_outcome(row_terms.to_dict(), np.array(true_coef_mean), include_intercept, true_estimate) + error
+            raw_reward = calculate_outcome(row_terms.to_dict(), np.array(true_coef_mean), include_intercept, true_estimate)
+            if reward.value_type == "BIN":
+                true_reward = np.random.binomial(1, raw_reward, 1)[0]
+            else:
+                # Get scale of error.
+                err_scale = (reward.max_value - reward.min_value) / 6
+                error = np.random.normal(0, err_scale, 1)[0]
+                true_reward = raw_reward + error
             row[reward_name] = reward.get_reward(true_reward)
 
         return new_learner_df

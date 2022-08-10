@@ -7,3 +7,4 @@ scipy==1.8.0
 six==1.16.0
 termcolor==1.1.0
 tqdm==4.64.0
+xlsxwriter

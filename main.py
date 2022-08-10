@@ -5,8 +5,9 @@ import pandas as pd
 import numpy as np
 import json
 
+from io import BytesIO
+
 from datasets.arms import ArmData
-from datasets.contexts import ContextAllocateData
 from datasets.bandits import Bandit
 from datasets.policies import PolicyFactory
 from metrics.evaluator import EvaluatorFactory
@@ -62,13 +63,13 @@ def simulate(
     # The priority of unique in rewards is higher than the priority of unique in contexts, in terms of sorting.
     all_policies.sort(key=lambda x: 10 * int(x.is_unique_reward()) + int(x.is_unique_contexts()), reverse=True)
 
-    # Print the reward generating plan for all policies.
-    first_policy = all_policies[0]
-    print(
-        "Policy {} is used for generating rewards: {}".format(
-            first_policy.get_name(), first_policy.get_reward_generate_plan()
-        )
-    )
+    # # Print the reward generating plan for all policies.
+    # first_policy = all_policies[0]
+    # print(
+    #     "Policy {} is used for generating rewards: {}".format(
+    #         first_policy.get_name(), first_policy.get_reward_generate_plan()
+    #     )
+    # )
 
     reward_pool = None
     contexts_pool = None
@@ -82,14 +83,25 @@ def simulate(
         simulation_df = pd.DataFrame(columns=columns)
 
         # Check whether the reward and contexts should be merged before running simulation.
-        is_unique_reward = policy.is_unique_reward() and reward_pool is None
-        is_unique_contexts = policy.is_unique_contexts() and contexts_pool is None
+        is_unique_reward = policy.is_unique_reward()
+        is_unique_contexts = policy.is_unique_contexts()
         if not is_unique_reward:
             if not is_unique_contexts:
-                merged_pool = pd.concat([reward_pool, contexts_pool], axis=1)
-                simulation_df = pd.concat([simulation_df, merged_pool])
+                if reward_pool is not None and contexts_pool is not None:
+                    merged_pool = pd.concat([reward_pool, contexts_pool], axis=1)
+                    simulation_df = pd.concat([simulation_df, merged_pool])
             else:
-                simulation_df = pd.concat([simulation_df, reward_pool])
+                if reward_pool is not None:
+                    simulation_df = pd.concat([simulation_df, reward_pool])
+        elif not is_unique_contexts:
+            if contexts_pool is None:
+                simulation_df = pd.concat([simulation_df, contexts_pool])
+        else:
+            print(
+                "Policy {} is used for generating rewards: {}".format(
+                    policy.get_name(), policy.get_reward_generate_plan()
+                )
+            )
 
         for trail in tqdm(range(numTrails), desc='Trails'):
             # Initialize one update batch of datapoints
@@ -158,21 +170,27 @@ def simulate(
         # Create the contexts pool if policy is unique in contexts.
         if is_unique_contexts:
             contexts_pool = simulation_df[policy.bandit.get_contextual_variables()]
-
+            
         simulation_output_path = configs["simulation"]
         os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
-
-        simulation_result_name = "{}_results".format(policy.get_name())
-        simulation_df.to_csv(f"{output_path}/{simulation_output_path}/{simulation_result_name}.csv")
+        
+        writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{policy.get_name()}.xlsx", engine='xlsxwriter')
+        simulation_result_name = "simulation_results"
+        simulation_df.to_excel(writer, sheet_name=f'{simulation_result_name}')
     
         # Evaluate
-        evaluator = EvaluatorFactory(simulation_df, policy).get_evaluator()
-        evaluation_output_path = configs["evaluation"]
-        os.makedirs(f"{output_path}/{evaluation_output_path}", exist_ok=True)
-        os.makedirs(f"{output_path}/{evaluation_output_path}/metrics", exist_ok=True)
-        for metric in list(evaluator.metrics.keys()):
-            metric_name = "{}_{}".format(policy.get_name(), metric)
-            evaluator.metrics[metric].to_csv(f"{output_path}/{evaluation_output_path}/metrics/{metric_name}.csv")
+        checkpoints = configs.get("checkpoints", ["all"])
+        for checkpoint in tqdm(checkpoints, desc='Checkpoints'):
+            checkpoint_df = simulation_df.head(n=checkpoint)
+            evaluator = EvaluatorFactory(checkpoint_df, policy).get_evaluator()
+            evaluation_output_path = configs["evaluation"]
+            # os.makedirs(f"{output_path}/{evaluation_output_path}", exist_ok=True)
+            # os.makedirs(f"{output_path}/{evaluation_output_path}/metrics", exist_ok=True)
+            for metric in list(evaluator.metrics.keys()):
+                metric_name = "{}_{}".format(checkpoint, metric)
+                evaluator.metrics[metric].to_excel(writer, sheet_name=f"{metric_name}")
+
+        writer.save()
 
     # if checkpoint_path is None:
     #     # Get columns of simulation dataframe
