@@ -47,7 +47,13 @@ class Bandit:
         for context in contexts:
             context = dict(context)
             context_name = context["name"]
-            contexts_dict[context_name] = ContextAllocateData(context["values"], context["allocations"])
+            contexts_dict[context_name] = ContextAllocateData(
+                context["min_value"], 
+                context["max_value"], 
+                context["value_type"], 
+                context["normalize"], 
+                context["distribution"]
+            )
             if context['extra'] is True:
                 self.terms.append(context_name)
             if context['interaction'] is True:
@@ -61,3 +67,10 @@ class Bandit:
     
     def get_contextual_variables(self) -> List:
         return list(self.contexts_dict.keys())
+    
+    def get_noncont_contextual_variables(self) -> List:
+        lst = []
+        for context in list(self.contexts_dict.keys()):
+            if self.contexts_dict[context].type != "CONT":
+                lst.append(context)
+        return lst

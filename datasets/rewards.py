@@ -51,7 +51,7 @@ class RewardData:
     def get_reward(self, raw_reward: float) -> float:
         """ Return the reward value given the normalization option in configs file. """
         if self.value_type != "CONT":
-            raw_reward = np.floor(raw_reward)
+            raw_reward = np.around(raw_reward)
         raw_reward = np.clip(raw_reward, self.min_value, self.max_value)
 
         if self.is_normalize and (self.min_value != 0.0 or self.max_value != 1.0):

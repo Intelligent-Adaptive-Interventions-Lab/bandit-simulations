@@ -5,6 +5,15 @@ from scipy.stats import invgamma, t, sem
 
 from typing import List, Tuple
 
+def mean_confidence_interval_quantile(
+    samples: List[float], 
+    confidence: float = 0.95
+) -> Tuple[float, float, float]:
+    m = np.mean(samples)
+    lower = np.quantile(np.asarray(samples), (1 - confidence) / 2.)
+    upper = np.quantile(np.asarray(samples), confidence + (1 - confidence) / 2.)
+    
+    return m, lower, upper
 
 def mean_confidence_interval_sem(
     samples: List[float], 
@@ -49,36 +58,50 @@ def draw_samples(
     return coef_draws
 
 
-def estimate_confidence_interval(simulation_df: pd.DataFrame, formula: str) -> pd.DataFrame:
-    columns = ["term", "coef_mean", "lower_bound", "upper_bound"]
-    evaluation_df = pd.DataFrame(columns=columns)
+def estimate_confidence_interval(simulation_dfs: List[pd.DataFrame], formula: str) -> pd.DataFrame:
+    columns = ["term", "coef_mean", "lower_bound", "upper_bound", "trail"]
+    all_evaluation_df = []
 
-    latest_params = simulation_df.iloc[-1]
+    for i in range(len(simulation_dfs)):
+        evaluation_df = pd.DataFrame(columns=columns)
+        latest_params = simulation_dfs[i].iloc[-1]
+        
+        # print(f"latest_params: {latest_params}")
 
-    formula = formula.strip()
-    all_vars_str = formula.split('~')[1].strip()
-    dependent_var = formula.split('~')[0].strip()
-    vars_list = all_vars_str.split('+')
-    vars_list = ["INTERCEPT"] + list(map(str.strip, vars_list))
+        formula = formula.strip()
+        all_vars_str = formula.split('~')[1].strip()
+        dependent_var = formula.split('~')[0].strip()
+        vars_list = all_vars_str.split('+')
+        vars_list = ["INTERCEPT"] + list(map(str.strip, vars_list))
 
-    mean = np.asarray(latest_params['coef_mean'])
-    cov = np.asarray(latest_params['coef_cov'])
-    variance_a = float(latest_params['variance_a'])
-    variance_b = float(latest_params['variance_b'])
+        mean = np.asarray(latest_params['coef_mean'])
+        cov = np.asarray(latest_params['coef_cov'])
+        variance_a = float(latest_params['variance_a'])
+        variance_b = float(latest_params['variance_b'])
+        
+        # print(f"mean: {mean}")
+        # print(f"cov: {cov}")
+        # print(f"variance_a: {variance_a}")
+        # print(f"variance_b: {variance_b}")
 
-    coef_draws = draw_samples(variance_a, variance_b, mean, cov).T
+        coef_draws = draw_samples(variance_a, variance_b, mean, cov).T
 
-    for sample_ind in range(coef_draws.shape[0]):
-        samples = coef_draws[sample_ind]
-        sample_coef_mean, sample_lower_ci, sample_upper_ci = mean_confidence_interval_sem(samples)
-        sample_evaluation = {
-            "term": vars_list[sample_ind],
-            "coef_mean": float(sample_coef_mean), 
-            "lower_bound": float(sample_lower_ci), 
-            "upper_bound": float(sample_upper_ci)
-        }
-        evaluation_df = pd.concat([evaluation_df, pd.DataFrame.from_records([sample_evaluation])])
+        for sample_ind in range(coef_draws.shape[0]):
+            samples = coef_draws[sample_ind]
+            sample_coef_mean, sample_lower_ci, sample_upper_ci = mean_confidence_interval_quantile(samples)
+            sample_evaluation = {
+                "trail": i,
+                "term": vars_list[sample_ind],
+                "coef_mean": float(sample_coef_mean), 
+                "lower_bound": float(sample_lower_ci), 
+                "upper_bound": float(sample_upper_ci)
+            }
+            evaluation_df = pd.concat([evaluation_df, pd.DataFrame.from_records([sample_evaluation])])
+        all_evaluation_df.append(evaluation_df)
+        # evaluation_df = evaluation_df.assign(TermIndex=range(len(evaluation_df))).set_index('TermIndex')
+        # all_evaluation_df = pd.concat([all_evaluation_df, evaluation_df])
 
-    evaluation_df = evaluation_df.assign(TermIndex=range(len(evaluation_df))).set_index('TermIndex')
+    all_evaluation = pd.concat(all_evaluation_df)
+    
+    return all_evaluation.groupby(by=["trail", "term"]).agg({"coef_mean": ["first"], "lower_bound": ["first"], "upper_bound": ["first"]})
 
-    return evaluation_df
