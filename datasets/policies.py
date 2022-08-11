@@ -290,6 +290,8 @@ class TSContextualPolicy(Policy):
         columns = []
         for index, row in self.bandit.arm_data.arms.iterrows():
             columns.append("{} Count".format(row["name"]).replace(" ", "_").lower())
+            columns.append("{} Success".format(row["name"]).replace(" ", "_").lower())
+            columns.append("{} Failure".format(row["name"]).replace(" ", "_").lower())
 
         # Get regression equation terms.
         terms = self.bandit.terms
@@ -357,6 +359,8 @@ class TSContextualPolicy(Policy):
         for index, row in self.bandit.arm_data.arms.iterrows():
             action_name = row["name"]
             assignment_data[f"{action_name} Count".replace(" ", "_").lower()] = row["count"]
+            assignment_data[f"{action_name} Success".replace(" ", "_").lower()] = row["success"]
+            assignment_data[f"{action_name} Failure".replace(" ", "_").lower()] = row["failure"]
 
         # Merge to a complete datapoints collection.
         new_learner_df = new_learner_df | assignment_data | best_action
@@ -411,6 +415,30 @@ class TSContextualPolicy(Policy):
 
         # Update the indicator.
         self.update_count += 1
+
+        reward = self.bandit.reward
+        arm_names = self.bandit.arm_data.arms["name"].tolist()
+        
+        for arm_name in arm_names:
+            # Get reward sum and reward count for each arm.
+            sum_rewards = float(sum(assignment_df[assignment_df[self.get_arm_column_name()] == arm_name][reward.name]))
+            count_rewards = float(len(assignment_df[assignment_df[self.get_arm_column_name()] == arm_name].index))
+
+            # Scale-up reward sum if reward is normalized.
+            if reward.is_normalize:
+                sum_rewards = sum_rewards * (reward.max_value - reward.min_value) + count_rewards * reward.min_value
+            
+            # Update success (e.g. alpha) for each arm.
+            success_update = (sum_rewards - count_rewards * reward.min_value) / (reward.max_value - reward.min_value)
+            success_update = self.bandit.arm_data.get_from_arm_name(arm_name, "success") + success_update
+
+            # Update failure (e.g. beta) for each arm.
+            failure_update = (count_rewards * reward.max_value - sum_rewards) / (reward.max_value - reward.min_value)
+            failure_update = self.bandit.arm_data.get_from_arm_name(arm_name, "failure") + failure_update
+
+            # Update success and failure to arm dataframe and parameter's priors. 
+            self.bandit.arm_data.update_from_arm_name(arm_name, "success", success_update)
+            self.bandit.arm_data.update_from_arm_name(arm_name, "failure", failure_update)
 
         return assignment_df
 

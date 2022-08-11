@@ -25,7 +25,7 @@ class ContextAllocateData:
         if dis_type is not None:
             random_val = eval(dis_type).rvs(**distribution_copy)
             if self.type != "CONT":
-                random_val = np.floor(random_val)
+                random_val = np.around(random_val)
             random_val = np.clip(random_val, self.min_val, self.max_val)
             
             if self.normalize:

@@ -6,6 +6,7 @@ import numpy as np
 import json
 
 from io import BytesIO
+from copy import deepcopy
 
 from datasets.arms import ArmData
 from datasets.bandits import Bandit
@@ -23,22 +24,24 @@ def simulate(
     random_seed: int = 42
 ) -> None:
     from tqdm import tqdm
-   
-    if not set_random:
-        np.random.seed(seed=random_seed) 
-  
+    
     if notebook_mode:
         from functools import partial
         tqdm = partial(tqdm, position=0, leave=True)
         pd.options.display.max_columns = None   
 
     os.makedirs(output_path, exist_ok=True)
-
+    
     configs_file = open(config_path)
     configs = json.load(configs_file)
-
+    
     numTrails = configs["numTrails"]
     horizon = configs["numLearners"]
+   
+    trial_seeds = None
+    if not set_random:
+        np.random.seed(seed=random_seed)
+        trail_seeds = np.random.randint(12345, size=numTrails)
 
     arms = list(configs["arms"])
     contexts = list(configs["contexts"]) if "contexts" in configs else None
@@ -73,37 +76,49 @@ def simulate(
 
     reward_pool = None
     contexts_pool = None
-    for i in range(len(all_policies)):
-        policy = all_policies[i]
+    for i in range(len(all_policies)):        
+        trails = []
+        for trail in tqdm(range(numTrails), desc='Trails'):
+            if not set_random:
+                np.random.seed(seed=trail_seeds[trail])
+            
+            policy = deepcopy(all_policies[i])
+            
+            print("policy parameter: {}".format(policy.configs["coef_mean"]))
 
-        # Get columns of simulation dataframe
-        columns = policy.columns
+            # Get columns of simulation dataframe
+            columns = policy.columns
 
-        # Initialize simulation dataframe
-        simulation_df = pd.DataFrame(columns=columns)
+            # Initialize simulation dataframe
+            simulation_df = pd.DataFrame(columns=columns)
 
-        # Check whether the reward and contexts should be merged before running simulation.
-        is_unique_reward = policy.is_unique_reward()
-        is_unique_contexts = policy.is_unique_contexts()
-        if not is_unique_reward:
-            if not is_unique_contexts:
-                if reward_pool is not None and contexts_pool is not None:
-                    merged_pool = pd.concat([reward_pool, contexts_pool], axis=1)
-                    simulation_df = pd.concat([simulation_df, merged_pool])
+            # Check whether the reward and contexts should be merged before running simulation.
+            is_unique_reward = policy.is_unique_reward()
+            is_unique_contexts = policy.is_unique_contexts()
+            if numTrails == 1:
+                print(
+                    "Policy {} is used for generating rewards: {}".format(
+                        policy.get_name(), policy.get_reward_generate_plan()
+                    )
+                )
+            elif not is_unique_reward:
+                if not is_unique_contexts:
+                    if reward_pool is not None and contexts_pool is not None:
+                        merged_pool = pd.concat([reward_pool, contexts_pool], axis=1)
+                        simulation_df = pd.concat([simulation_df, merged_pool])
             else:
                 if reward_pool is not None:
                     simulation_df = pd.concat([simulation_df, reward_pool])
-        elif not is_unique_contexts:
-            if contexts_pool is None:
-                simulation_df = pd.concat([simulation_df, contexts_pool])
-        else:
-            print(
-                "Policy {} is used for generating rewards: {}".format(
-                    policy.get_name(), policy.get_reward_generate_plan()
-                )
-            )
+                elif not is_unique_contexts:
+                    if contexts_pool is None:
+                        simulation_df = pd.concat([simulation_df, contexts_pool])
+                else:
+                    print(
+                        "Policy {} is used for generating rewards: {}".format(
+                            policy.get_name(), policy.get_reward_generate_plan()
+                        )
+                    )
 
-        for trail in tqdm(range(numTrails), desc='Trails'):
             # Initialize one update batch of datapoints
             assignment_df = pd.DataFrame(columns=columns)
             for learner in tqdm(range(horizon), desc='Horizons'):
@@ -149,40 +164,43 @@ def simulate(
                     # Re-initialize the update batch of datapoints.
                     assignment_df = pd.DataFrame(columns=columns)
         
-        # Concate the remaining assignment dataframe to the simulation dataframe.
-        if len(assignment_df.index) > 0:
-            assignment_df[policy.get_udpate_batch_column_name()] = policy.update_count
+            # Concate the remaining assignment dataframe to the simulation dataframe.
+            if len(assignment_df.index) > 0:
+                assignment_df[policy.get_udpate_batch_column_name()] = policy.update_count
 
-            # Merge to simulation dataframe.
-            if not is_unique_reward:
-                simulation_df = simulation_df.fillna(assignment_df)
-            else:
-                simulation_df = pd.concat([simulation_df, assignment_df])
+                # Merge to simulation dataframe.
+                if not is_unique_reward:
+                    simulation_df = simulation_df.fillna(assignment_df)
+                else:
+                    simulation_df = pd.concat([simulation_df, assignment_df])
 
-        print("{} arm data:".format(policy.get_name()))
-        print(policy.bandit.arm_data.arms)
-        simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
-
-        # Create the reward pool if policy is unique in rewards.
-        if is_unique_reward:
-            reward_pool = simulation_df[[policy.get_reward_column_name()]]
-        
-        # Create the contexts pool if policy is unique in contexts.
-        if is_unique_contexts:
-            contexts_pool = simulation_df[policy.bandit.get_contextual_variables()]
+            print("{} arm data:".format(policy.get_name()))
+            print(policy.bandit.arm_data.arms)
+            simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
             
-        simulation_output_path = configs["simulation"]
-        os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
-        
-        writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{policy.get_name()}.xlsx", engine='xlsxwriter')
-        simulation_result_name = "simulation_results"
-        simulation_df.to_excel(writer, sheet_name=f'{simulation_result_name}')
-    
+            simulation_output_path = configs["simulation"]
+            os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
+            writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{policy.get_name()}.xlsx", engine='xlsxwriter')
+                    
+            if numTrails == 1:
+                # Create the reward pool if policy is unique in rewards.
+                if is_unique_reward:
+                    reward_pool = simulation_df[[policy.get_reward_column_name()]]
+                
+                # Create the contexts pool if policy is unique in contexts.
+                if is_unique_contexts:
+                    contexts_pool = simulation_df[policy.bandit.get_contextual_variables()]
+                    
+                simulation_result_name = "simulation_results"
+                simulation_df.to_excel(writer, sheet_name=f'{simulation_result_name}')
+
+            trails.append(simulation_df)
+
         # Evaluate
         checkpoints = configs.get("checkpoints", ["all"])
         for checkpoint in tqdm(checkpoints, desc='Checkpoints'):
-            checkpoint_df = simulation_df.head(n=checkpoint)
-            evaluator = EvaluatorFactory(checkpoint_df, policy).get_evaluator()
+            checkpoint_dfs = [s_df.head(n=checkpoint) for s_df in trails]
+            evaluator = EvaluatorFactory(checkpoint_dfs, policy).get_evaluator()
             evaluation_output_path = configs["evaluation"]
             # os.makedirs(f"{output_path}/{evaluation_output_path}", exist_ok=True)
             # os.makedirs(f"{output_path}/{evaluation_output_path}/metrics", exist_ok=True)
