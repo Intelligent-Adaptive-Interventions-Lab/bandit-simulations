@@ -103,5 +103,5 @@ def estimate_confidence_interval(simulation_dfs: List[pd.DataFrame], formula: st
 
     all_evaluation = pd.concat(all_evaluation_df)
     
-    return all_evaluation.groupby(by=["trail", "term"]).agg({"coef_mean": ["first"], "lower_bound": ["first"], "upper_bound": ["first"]})
+    return all_evaluation.groupby(by=["trail", "term"], sort=False).agg({"coef_mean": ["first"], "lower_bound": ["first"], "upper_bound": ["first"]})
 
