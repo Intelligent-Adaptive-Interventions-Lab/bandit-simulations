@@ -25,7 +25,6 @@ def wald_test_statistics(
 
     return stats, pval
 
-
 def perfrom_wald_test(
     simulation_dfs: List[pd.DataFrame], 
     policy: Union[TopTwoTSPolicy, TSPostDiffPolicy, TSContextualPolicy]

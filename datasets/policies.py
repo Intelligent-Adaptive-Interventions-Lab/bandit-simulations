@@ -300,7 +300,7 @@ class TSContextualPolicy(Policy):
         length = len(terms) + 1 if self.configs["include_intercept"] == 1 else len(terms)
 
         # Initialize some parameters in ts contextual policy.
-        self.configs["coef_cov"] = np.eye(length, dtype=float).tolist()
+        self.configs["coef_cov"] = (np.eye(length, dtype=float) * 100).tolist()
         self.configs["coef_mean"] = np.zeros(length, dtype=float).tolist()
         self.configs["action_space"] = self.bandit.action_space
         self.configs["contextual_variables"] = self.bandit.get_contextual_variables()
