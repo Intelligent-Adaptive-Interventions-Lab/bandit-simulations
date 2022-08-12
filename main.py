@@ -76,11 +76,12 @@ def simulate(
 
     simulation_output_path = configs["simulation"]
     os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
-    writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{policy.get_name()}.xlsx", engine='xlsxwriter')
 
     reward_pool = None
     contexts_pool = None
     for i in range(len(all_policies)):        
+        writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{all_policies[i].get_name()}.xlsx", engine='xlsxwriter')
+
         trails = []
         for trail in tqdm(range(numTrails), desc='Trails'):
             if not set_random:

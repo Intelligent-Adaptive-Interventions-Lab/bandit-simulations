@@ -17,12 +17,12 @@ class ArmData:
         for arm in arms:
             arm_row = init_arms.copy()
             arm_row[arm["action_variable"]] = arm["value"]
-            arm_row = arm_row | {
+            arm_row.update({
                 "name": arm["name"],
                 "count": 0 if "count" not in arm else arm["count"],
                 "success": 1 if "success" not in arm else arm["success"],
                 "failure": 1 if "failure" not in arm else arm["failure"]
-            }
+            })
             self.arms = pd.concat([self.arms, pd.DataFrame.from_records([arm_row])])
         
         self.arms = self.arms.dropna(axis=1)
