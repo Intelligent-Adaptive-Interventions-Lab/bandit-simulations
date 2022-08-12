@@ -74,6 +74,10 @@ def simulate(
     #     )
     # )
 
+    simulation_output_path = configs["simulation"]
+    os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
+    writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{policy.get_name()}.xlsx", engine='xlsxwriter')
+
     reward_pool = None
     contexts_pool = None
     for i in range(len(all_policies)):        
@@ -177,10 +181,8 @@ def simulate(
             print("{} arm data:".format(policy.get_name()))
             print(policy.bandit.arm_data.arms)
             simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
-            
-            simulation_output_path = configs["simulation"]
-            os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
-            writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{policy.get_name()}.xlsx", engine='xlsxwriter')
+            simulation_result_name = "simulation_results"
+            simulation_df.to_excel(writer, sheet_name=f'{simulation_result_name}_{trail}')
                     
             if numTrails == 1:
                 # Create the reward pool if policy is unique in rewards.
@@ -190,9 +192,6 @@ def simulate(
                 # Create the contexts pool if policy is unique in contexts.
                 if is_unique_contexts:
                     contexts_pool = simulation_df[policy.bandit.get_contextual_variables()]
-                    
-                simulation_result_name = "simulation_results"
-                simulation_df.to_excel(writer, sheet_name=f'{simulation_result_name}')
 
             trails.append(simulation_df)
 
