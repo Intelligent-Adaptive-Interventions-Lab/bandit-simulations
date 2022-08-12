@@ -1,0 +1,150 @@
+{
+    "numTrails": 2,
+    "numLearners": 2000,
+    "simulation": "iaai_rationale_simulation_test",
+    "evaluation": "iaai_rationale_evaluation_test",
+    "arms": [
+        {
+            "action_variable": "IsRationale",
+            "value": 1,
+            "name": "Got Rationale",
+            "implicit": false
+        },
+        {
+            "action_variable": "IsRationale",
+            "value": 0,
+            "name": "No Rationale",
+            "implicit": false
+        }
+    ],
+    "contexts": [
+        {
+            "name": "IsWeekend",
+            "min_value": 0.0,
+            "max_value": 1.0,
+            "value_type": "BIN",
+            "sample_thres": 15,
+            "interaction": false,
+            "extra": true,
+            "normalize": true,
+            "distribution": {
+                "type": "bernoulli",
+                "p": 0.5,
+                "loc": 0.0
+            }
+        },
+        {
+            "name": "Mood",
+            "min_value": 0.0,
+            "max_value": 1.0,
+            "value_type": "BIN",
+            "sample_thres": 15,
+            "interaction": true,
+            "extra": true,
+            "normalize": true,
+            "distribution": {
+                "type": "bernoulli",
+                "p": 0.5,
+                "loc": 0.0
+            }
+        },
+        {
+            "name": "Energy",
+            "min_value": 0.0,
+            "max_value": 1.0,
+            "value_type": "BIN",
+            "sample_thres": 15,
+            "interaction": false,
+            "extra": true,
+            "normalize": true,
+            "distribution": {
+                "type": "bernoulli",
+                "p": 0.5,
+                "loc": 0.0
+            }
+        },
+        {
+            "name": "K10",
+            "min_value": 1.0,
+            "max_value": 4.0,
+            "value_type": "ORD",
+            "sample_thres": 15,
+            "interaction": false,
+            "extra": true,
+            "normalize": true,
+            "distribution": {
+                "type": "randint",
+                "low": 1.0,
+                "high": 5.0,
+                "loc": 0.0
+            }
+        },
+        {
+            "name": "AverageResponsiveness",
+            "min_value": 0.0,
+            "max_value": 1.0,
+            "value_type": "CONT",
+            "sample_thres": 15,
+            "interaction": false,
+            "extra": true,
+            "normalize": true,
+            "distribution": {
+                "type": "uniform",
+                "loc": 0.0,
+                "scale": 1.0
+            }
+        }
+    ],
+    "reward": {
+        "name": "MessageRating",
+        "min_value": 1.0,
+        "max_value": 5.0,
+        "value_type": "ORD",
+        "normalize": true
+    },
+    "parameters": [
+        {
+            "name": "no_diff",
+            "type": "TSCONTEXTUAL",
+            "variance_a": 2, 
+            "variance_b": 1, 
+            "batch_size": 2, 
+            "uniform_threshold": 0,
+            "include_intercept": 1,
+            "regression_formula": null,
+            "true_estimate": "MessageRating ~ IsRationale",
+            "true_coef_mean": [3, 0],
+            "unique_reward": true,
+            "unique_contexts": true
+        },
+        {
+            "name": "main_effect",
+            "type": "TSCONTEXTUAL",
+            "variance_a": 2,
+            "variance_b": 1,
+            "batch_size": 2,
+            "uniform_threshold": 0,
+            "include_intercept": 1,
+            "regression_formula": null,
+            "true_estimate": "MessageRating ~ IsRationale",
+            "true_coef_mean": [3, 0.5],
+            "unique_reward": true,
+            "unique_contexts": true
+        },
+        {
+            "name": "crossover_interaction",
+            "type": "TSCONTEXTUAL",
+            "variance_a": 2,
+            "variance_b": 1,
+            "batch_size": 2,
+            "uniform_threshold": 0,
+            "include_intercept": 1,
+            "regression_formula": null,
+            "true_estimate": "MessageRating ~ IsRationale + Mood + IsRationale * Mood",
+            "true_coef_mean": [3, 1.5, -0.5, -1.5],
+            "unique_reward": true,
+            "unique_contexts": true
+        }
+    ],
+    "checkpoints": [500, 2000]
+}
