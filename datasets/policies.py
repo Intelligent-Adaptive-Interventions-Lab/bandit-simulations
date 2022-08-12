@@ -119,7 +119,8 @@ class TopTwoTSPolicy(Policy):
         best_action = self.bandit.arm_data.get_action_space_from_name(new_learner_df[self.get_arm_column_name()])
 
         # Merge to a complete datapoints collection.
-        new_learner_df = new_learner_df | assignment_data | best_action
+        new_learner_df.update(assignment_data)
+        new_learner_df.update(best_action)
 
         return new_learner_df
 
@@ -231,7 +232,8 @@ class TSPostDiffPolicy(Policy):
         best_action = self.bandit.arm_data.get_action_space_from_name(new_learner_df[self.get_arm_column_name()])
 
         # Merge to a complete datapoints collection.
-        new_learner_df = new_learner_df | assignment_data | best_action
+        new_learner_df.update(assignment_data)
+        new_learner_df.update(best_action)
 
         return new_learner_df
     
@@ -363,7 +365,8 @@ class TSContextualPolicy(Policy):
             assignment_data[f"{action_name} Failure".replace(" ", "_").lower()] = row["failure"]
 
         # Merge to a complete datapoints collection.
-        new_learner_df = new_learner_df | assignment_data | best_action
+        new_learner_df.update(assignment_data)
+        new_learner_df.update(best_action)
 
         return new_learner_df
     

@@ -48,12 +48,12 @@ def thompson_sampling_contextual(
 	variance_a = parameters['variance_a']
 	variance_b = parameters['variance_b']
 
-	assignment_data = assignment_data | {
+	assignment_data.update({
 		"coef_mean": mean,
 		"coef_cov": cov,
 		"variance_a": variance_a,
 		"variance_b": variance_b
-	}
+	})
 
 	# UR Cold Start
 	if uniform_threshold != 0:
@@ -74,10 +74,10 @@ def thompson_sampling_contextual(
 	# Draw regression coefficients according to priors
 	coef_draw = np.random.multivariate_normal(mean, precesion_draw * cov)
 
-	assignment_data = assignment_data | {
+	assignment_data.update({
 		"precesion_draw": list(precesion_draw),
 		"coef_draw": list(coef_draw)
-	}
+	})
 
 	## Generate all possible action combinations
 	# Initialize action set
