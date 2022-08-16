@@ -14,6 +14,11 @@ from datasets.policies import PolicyFactory
 from metrics.evaluator import EvaluatorFactory
 from utils.clean import clean_df_from_csv
 
+from scipy.stats import invgamma
+from policies.tscontextual.utils import create_design_matrix, posteriors
+from metrics.confidence_interval import draw_samples, mean_confidence_interval_quantile
+
+
 
 def simulate(
     config_path: str, 
@@ -260,6 +265,134 @@ def simulate(
     #     simulation_df = pd.read_csv(checkpoint_path)
     #     simulation_df = clean_df_from_csv(simulation_df)
 
+
+def fit(
+    config_path: str, 
+    input_path: str,
+    output_path: str
+) -> None:
+    from tqdm import tqdm
+
+    lst = []
+    for i in tqdm(range(200), desc='Trails'):
+        simulation_df = pd.read_excel(input_path, index_col=0, sheet_name=f'simulation_results_{i}')
+        simulation_df = clean_df_from_csv(simulation_df)
+
+        lst_i = []
+        for j in tqdm([199, 499, 999], desc='Paricipants'):
+            coef_cov = simulation_df.iloc[j]["coef_cov"]
+            coef_mean = simulation_df.iloc[j]["coef_mean"]
+            variance_a = simulation_df.iloc[j]["variance_a"]
+            variance_b = simulation_df.iloc[j]["variance_b"]
+
+            learner = simulation_df.iloc[j]["learner"]
+            print(f"leaner: {learner}")
+            print(f"coef_cov: {coef_cov}")
+            print(f"coef_mean: {coef_mean}")
+            print(f"variance_a: {variance_a}")
+            print(f"variance_b: {variance_b}")
+
+
+            configs_file = open(config_path)
+            configs = json.load(configs_file)
+
+            arms = list(configs["arms"])
+            contexts = list(configs["contexts"]) if "contexts" in configs else None
+            reward = dict(configs["reward"])
+
+            params = configs["parameters"]
+
+            bandit = Bandit(reward, arms, contexts)
+
+            # Choose corresponding policy from policy factory.
+            policy = PolicyFactory(params, bandit).get_policy()
+
+            value_col = [policy.bandit.reward.name] + policy.bandit.get_actions() + policy.bandit.get_contextual_variables()
+            
+            X = create_design_matrix(
+                simulation_df.iloc[:j+1][value_col], 
+                policy.configs["regression_formula"], 
+                bool(policy.configs["include_intercept"])
+            ).values
+            y = simulation_df.iloc[:j+1][value_col][policy.configs['outcome_variable']].values
+            V_pre = (np.eye(8, dtype=float) * 10).tolist()
+            m_pre = np.zeros(8, dtype=float).tolist()
+
+            datasize = len(y)
+
+            # X transpose
+            Xtranspose = np.matrix.transpose(X)
+
+            # Residuals
+            # (y - Xb) and (y - Xb)'
+            resid = np.subtract(y, np.dot(X, m_pre))
+            resid_trans = np.matrix.transpose(resid)
+
+            # N x N middle term for gamma update
+            # (I + XVX')^{-1}
+            mid_term = np.linalg.inv(np.add(np.identity(datasize), np.dot(np.dot(X, V_pre), Xtranspose)))
+
+            ## Update coeffecients priors
+
+            # Update mean vector
+            # [(V^{-1} + X'X)^{-1}][V^{-1}mu + X'y]
+            m_post = coef_mean
+
+            # Update covariance matrix
+            # (V^{-1} + X'X)^{-1}
+            V_post = coef_cov
+
+            ## Update precesion prior
+
+            # Update gamma parameters
+            # a + n/2 (shape parameter)
+            a1_post = 2 + datasize/2
+
+            # b + (1/2)(y - Xmu)'(I + XVX')^{-1}(y - Xmu) (scale parameter)
+            a2_post = 1 + (np.dot(np.dot(resid_trans, mid_term), resid))/2
+
+            ## Posterior draws
+
+            beta_draws = draw_samples(a1_post, a2_post, m_post, V_post).T # [8 X 10000]
+
+
+            formula = policy.configs["regression_formula"].strip()
+            all_vars_str = formula.split('~')[1].strip()
+            dependent_var = formula.split('~')[0].strip()
+            vars_list = all_vars_str.split('+')
+            vars_list = ["INTERCEPT"] + list(map(str.strip, vars_list))
+
+            # eval_columns = ["term", "coef_mean", "lower_bound", "upper_bound"]
+            # evaluation_df = pd.DataFrame(columns=eval_columns)
+
+            lst_j = []
+            for sample_ind in range(beta_draws.shape[0]):
+                samples = beta_draws[sample_ind]
+                sample_coef_mean, sample_lower_ci, sample_upper_ci = mean_confidence_interval_quantile(samples)
+                lst_j.append(int((float(sample_lower_ci) * float(sample_upper_ci)) > 0))
+                # sample_evaluation = {
+                #     "term": vars_list[sample_ind],
+                #     "coef_mean": float(sample_coef_mean), 
+                #     "lower_bound": float(sample_lower_ci), 
+                #     "upper_bound": float(sample_upper_ci),
+                #     "is_significant": int((float(sample_lower_ci) * float(sample_upper_ci)) > 0)
+                # }
+                # evaluation_df = pd.concat([evaluation_df, pd.DataFrame.from_records([sample_evaluation])])
+            lst_i.append(lst_j)
+
+
+        lst.append(lst_i)
+    
+    lst = np.asarray(lst) # [200 X 3 x 8]
+
+    mean_lst = np.mean(lst, axis=0) # [3 x 8]
+
+    evaluation_df = pd.DataFrame({"result": [str(mean_lst.tolist())]})
+
+    simulation_output_path = configs["simulation"]
+    result_name = configs["parameters"]["name"]
+    os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
+    evaluation_df.to_csv(f"{output_path}/{simulation_output_path}/fit_results_{result_name}.csv")
 
 if __name__ == "__main__":
     import fire
