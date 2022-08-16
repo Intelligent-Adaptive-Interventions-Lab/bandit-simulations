@@ -302,7 +302,7 @@ class TSContextualPolicy(Policy):
         length = len(terms) + 1 if self.configs["include_intercept"] == 1 else len(terms)
 
         # Initialize some parameters in ts contextual policy.
-        self.configs["coef_cov"] = (np.eye(length, dtype=float) * 100).tolist()
+        self.configs["coef_cov"] = (np.eye(length, dtype=float) * 10).tolist()
         self.configs["coef_mean"] = np.zeros(length, dtype=float).tolist()
         self.configs["action_space"] = self.bandit.action_space
         self.configs["contextual_variables"] = self.bandit.get_contextual_variables()
@@ -401,7 +401,7 @@ class TSContextualPolicy(Policy):
                 true_reward = np.random.binomial(1, raw_reward, 1)[0]
             else:
                 # Get scale of error.
-                err_scale = (reward.max_value - reward.min_value) / 6
+                err_scale = (reward.max_value - reward.min_value) / 3
                 error = np.random.normal(0, err_scale, 1)[0]
                 true_reward = raw_reward + error
             row[reward_name] = reward.get_reward(true_reward)
