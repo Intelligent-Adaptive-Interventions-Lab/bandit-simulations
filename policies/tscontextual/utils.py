@@ -1,7 +1,54 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import invgamma
-from typing import Dict
+from typing import Dict, List
+
+
+def create_design_matrix_simple(
+    value_names: List, 
+    values: np.ndarray,
+    formula: str, 
+    add_intercept: bool = True
+) -> pd.DataFrame:
+    '''
+    :param value_names: a list, contians all value names, orders matter.
+    :param values: a 2D numpy array, column's orders are the same as values_names.
+    :param formula: for example "y ~ x0 + x1 + x2 + x0 * x1 + x1 * x2"
+    :param add_intercept: whether to add dummy columns of 1.
+    :return: the design matrix as a dataframe, each row corresponds to a data point, and each column is a regressor in regression
+    '''
+
+    D_df = pd.DataFrame()
+
+    formula = str(formula)
+    # parse formula
+    formula = formula.strip()
+    all_vars_str = formula.split('~')[1].strip()
+    dependent_var = formula.split('~')[0].strip()
+    vars_list = all_vars_str.split('+')
+    vars_list = list(map(str.strip, vars_list))
+
+    ''''#sanity check to ensure each var used in
+    for var in vars_list:
+        if var not in input_df.columns:
+            raise Exception('variable {} not in the input dataframe'.format((var)))'''
+
+    # build design matrix
+    for var in vars_list:
+        if '*' in var:
+            interacting_vars = var.split('*')
+            interacting_vars = list(map(str.strip, interacting_vars))
+            D_df[var] = values.T[value_names.index(interacting_vars[0])]
+            for i in range(1, len(interacting_vars)):
+                D_df[var] *= values.T[value_names.index(interacting_vars[i])]
+        else:
+            D_df[var] = values.T[value_names.index(var)]
+
+    # add dummy column for bias
+    if add_intercept:
+        D_df.insert(0, 'Intercept', 1.)
+
+    return D_df
 
 
 def create_design_matrix(

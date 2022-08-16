@@ -10,7 +10,7 @@ from copy import deepcopy
 
 from datasets.arms import ArmData
 from datasets.bandits import Bandit
-from datasets.policies import PolicyFactory
+from datasets.policies.policyfactory import PolicyFactory, PolicyFactorySimple
 from metrics.evaluator import EvaluatorFactory
 from utils.clean import clean_df_from_csv
 
@@ -393,6 +393,157 @@ def fit(
     result_name = configs["parameters"]["name"]
     os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
     evaluation_df.to_csv(f"{output_path}/{simulation_output_path}/fit_results_{result_name}.csv")
+
+
+def simulate_simple(
+    config_path: str, 
+    output_path: str, 
+    checkpoint_path: str = None,
+    notebook_mode: bool = False,
+    set_random: bool = False,
+    random_seed: int = 42
+) -> None:
+    from tqdm import tqdm
+    
+    if notebook_mode:
+        from functools import partial
+        tqdm = partial(tqdm, position=0, leave=True)
+        pd.options.display.max_columns = None   
+
+    os.makedirs(output_path, exist_ok=True)
+    
+    configs_file = open(config_path)
+    configs = json.load(configs_file)
+    
+    numTrails = configs["numTrails"]
+    horizon = configs["numLearners"]
+   
+    trial_seeds = None
+    if not set_random:
+        np.random.seed(seed=random_seed)
+        trail_seeds = np.random.randint(12345, size=numTrails)
+
+    arms = list(configs["arms"])
+    contexts = list(configs["contexts"]) if "contexts" in configs else None
+    reward = dict(configs["reward"])
+
+    if type(configs["parameters"]) == dict:
+        all_params =  list([configs["parameters"]])
+    else:
+        all_params = list(configs["parameters"])
+    all_policies = []
+    for init_params in all_params:
+        # Initialize bandit settings.
+        bandit = Bandit(reward, arms, contexts)
+
+        # Choose corresponding policy from policy factory.
+        policy = PolicyFactorySimple(init_params, bandit).get_policy()
+
+        all_policies.append(policy)
+    
+    # Sort the policy list by the unique reward indicator and unique contexts indicator.
+    # E.g. policies which is both unique in rewards and contexts run the simulation first;
+    # The priority of unique in rewards is higher than the priority of unique in contexts, in terms of sorting.
+    all_policies.sort(key=lambda x: 10 * int(x.is_unique_reward()) + int(x.is_unique_contexts()), reverse=True)
+
+    # # Print the reward generating plan for all policies.
+    # first_policy = all_policies[0]
+    # print(
+    #     "Policy {} is used for generating rewards: {}".format(
+    #         first_policy.get_name(), first_policy.get_reward_generate_plan()
+    #     )
+    # )
+
+    simulation_output_path = configs["simulation"]
+    os.makedirs(f"{output_path}/{simulation_output_path}", exist_ok=True)
+    
+    for i in range(len(all_policies)):        
+        writer = pd.ExcelWriter(f"{output_path}/{simulation_output_path}/{all_policies[i].get_name()}.xlsx", engine='xlsxwriter')
+
+        trails = []
+        for trail in tqdm(range(numTrails), desc='Trails'):
+            if not set_random:
+                np.random.seed(seed=trail_seeds[trail])
+            
+            policy = deepcopy(all_policies[i])
+            
+            print("policy parameter: {}".format(policy.configs["coef_mean"]))
+
+            # Get columns of simulation dataframe
+            columns = policy.columns
+
+            # Initialize simulation dataframe
+            simulation_np = np.zeros([0, len(columns)])
+
+            if numTrails == 1:
+                print(
+                    "Policy {} is used for generating rewards: {}".format(
+                        policy.get_name(), policy.get_reward_generate_plan()
+                    )
+                )
+
+            # Initialize one update batch of datapoints
+            assignment_np = np.zeros([0, len(columns)])
+            for learner in tqdm(range(horizon), desc='Horizons'):
+                # Register a new learner.
+                new_learner = f"learner_{learner:03d}_{trail:03d}"
+
+                # Initialize one dataframe for the new learner.
+                new_learner_dict = {}
+
+                # Get datapoints (e.g. assigned arm, generated contexts) for the new learner.
+                new_learner_dict = policy.run(new_learner_dict)
+                
+                # Update rewards for the new learner.
+                new_learner_dict = policy.get_reward([new_learner_dict])[0]
+                
+                # print("columns: {}".format(columns))
+                # print("new_learner_dict: {}".format(new_learner_dict))
+                new_entry = np.asarray([new_learner_dict[var] if var in new_learner_dict else 0. for var in columns])
+                assignment_np = np.vstack([assignment_np, new_entry])
+                # print("assignment_np: {}".format(assignment_np))
+
+                # Check if parameters should update.
+                if assignment_np.shape[0] >= policy.params.parameters["batch_size"]:
+                    # Update parameters.
+                    assignment_np = policy.update_params(assignment_np)
+
+                    # Merge to simulation dataframe.
+                    simulation_np = np.vstack([simulation_np, assignment_np])
+
+                    # Re-initialize the update batch of datapoints.
+                    assignment_np = np.zeros([0, len(columns)])
+        
+            # Concate the remaining assignment dataframe to the simulation dataframe.
+            if assignment_np.shape[0] > 0:
+                assignment_np[:, -1] = policy.update_count
+
+                # Merge to simulation dataframe.
+                simulation_np = np.vstack([simulation_np, assignment_np])
+
+            print("{} arm data:".format(policy.get_name()))
+            print(policy.bandit.arm_data.arms)
+            simulation_df = pd.DataFrame(simulation_np, columns=columns)
+            simulation_df = simulation_df.assign(Index=range(len(simulation_df))).set_index('Index')
+            simulation_result_name = "simulation_results"
+            simulation_df.to_excel(writer, sheet_name=f'{simulation_result_name}_{trail}')
+
+            trails.append(simulation_df)
+
+        # Evaluate
+        # checkpoints = configs.get("checkpoints", ["all"])
+        # for checkpoint in tqdm(checkpoints, desc='Checkpoints'):
+        #     checkpoint_dfs = [s_df.head(n=checkpoint) for s_df in trails]
+        #     evaluator = EvaluatorFactory(checkpoint_dfs, policy).get_evaluator()
+        #     evaluation_output_path = configs["evaluation"]
+        #     # os.makedirs(f"{output_path}/{evaluation_output_path}", exist_ok=True)
+        #     # os.makedirs(f"{output_path}/{evaluation_output_path}/metrics", exist_ok=True)
+        #     for metric in list(evaluator.metrics.keys()):
+        #         metric_name = "{}_{}".format(checkpoint, metric)
+        #         evaluator.metrics[metric].to_excel(writer, sheet_name=f"{metric_name}")
+
+        writer.save()
+
 
 if __name__ == "__main__":
     import fire

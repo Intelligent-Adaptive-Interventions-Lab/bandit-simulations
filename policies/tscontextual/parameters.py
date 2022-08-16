@@ -1,8 +1,9 @@
+import numpy as np
 import pandas as pd
 from typing import Dict, List
 
 from policies.types import PolicyParameter
-from policies.tscontextual.utils import create_design_matrix, posteriors
+from policies.tscontextual.utils import create_design_matrix_simple, create_design_matrix, posteriors
 
 class TSContextualParameter(PolicyParameter):
     parameters: Dict
@@ -19,6 +20,31 @@ class TSContextualParameter(PolicyParameter):
 
         numpy_design_matrix = design_matrix.values
         numpy_rewards = values[self.parameters['outcome_variable']].values
+
+        posterior_vals = posteriors(
+            numpy_rewards, 
+            numpy_design_matrix, 
+            self.parameters['coef_mean'], 
+            self.parameters['coef_cov'], 
+            self.parameters["variance_a"], 
+            self.parameters["variance_b"]
+        )
+
+        self.parameters['coef_mean'] = posterior_vals["coef_mean"].tolist()
+        self.parameters['coef_cov'] = posterior_vals["coef_cov"].tolist()
+        self.parameters['variance_a'] = posterior_vals["variance_a"]
+        self.parameters['variance_b'] = posterior_vals["variance_b"]
+
+    def update_params_simple(self, values: np.ndarray, columns: List) -> None:
+        design_matrix = create_design_matrix_simple(
+            columns,
+            values, 
+            self.parameters["regression_formula"], 
+            bool(self.parameters["include_intercept"])
+        )
+
+        numpy_design_matrix = design_matrix.values
+        numpy_rewards = values.T[columns.index(self.parameters['outcome_variable'])]
 
         posterior_vals = posteriors(
             numpy_rewards, 

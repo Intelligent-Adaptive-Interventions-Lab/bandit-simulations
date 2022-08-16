@@ -4,7 +4,9 @@ from scipy.stats import norm
 
 from typing import List, Tuple, Union
 
-from datasets.policies import TopTwoTSPolicy, TSPostDiffPolicy, TSContextualPolicy
+from datasets.policies.toptwots import TopTwoTSPolicy
+from datasets.policies.tspostdiff import TSPostDiffPolicy
+from datasets.policies.tscontextual import TSContextualPolicy
 
 np.seterr(divide='ignore',invalid='ignore')
 
@@ -20,10 +22,12 @@ def wald_test_statistics(
 
     est_a = success_a / num_a
     est_b = success_b / num_b
+    # TODO: Change est_a * (1.0 - est_a) to var(all rewards from arm_a), same for arm_b
     stats = (est_a - est_b)/np.sqrt(est_a * (1.0 - est_a) / num_a + est_b * (1.0 - est_b) / num_b)
     pval = (1.0 - norm.cdf(np.abs(stats))) * 2 # Two sided, symetric, so compare to 0.05
 
     return stats, pval
+
 
 def perfrom_wald_test(
     simulation_dfs: List[pd.DataFrame], 
