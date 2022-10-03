@@ -94,7 +94,7 @@ def simulate(
             
             policy = deepcopy(all_policies[i])
             
-            print("policy parameter: {}".format(policy.configs["coef_mean"]))
+            # print("policy parameter: {}".format(policy.configs["coef_mean"]))
 
             # Get columns of simulation dataframe
             columns = policy.columns
@@ -467,7 +467,7 @@ def simulate_simple(
             
             policy = deepcopy(all_policies[i])
             
-            print("policy parameter: {}".format(policy.configs["coef_mean"]))
+            # print("policy parameter: {}".format(policy.configs["coef_mean"]))
 
             # Get columns of simulation dataframe
             columns = policy.columns
@@ -495,13 +495,14 @@ def simulate_simple(
                 new_learner_dict = policy.run(new_learner_dict)
                 
                 # Update rewards for the new learner.
+                print(type(new_learner_dict))
                 new_learner_dict = policy.get_reward([new_learner_dict])[0]
                 
-                # print("columns: {}".format(columns))
-                # print("new_learner_dict: {}".format(new_learner_dict))
+                print("columns: {}".format(columns))
+                print("new_learner_dict: {}".format(new_learner_dict))
                 new_entry = np.asarray([new_learner_dict[var] if var in new_learner_dict else 0. for var in columns])
                 assignment_np = np.vstack([assignment_np, new_entry])
-                # print("assignment_np: {}".format(assignment_np))
+                print("assignment_np: {}".format(assignment_np))
 
                 # Check if parameters should update.
                 if assignment_np.shape[0] >= policy.params.parameters["batch_size"]:
