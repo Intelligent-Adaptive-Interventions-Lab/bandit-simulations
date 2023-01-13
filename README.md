@@ -1,5 +1,6 @@
 # bandit-simulations
 Simulation Code for Bandit Algorithms
+https://docs.google.com/presentation/d/1D2xYWAkfR0exT9pfThozlPL8S_zqgrKYEAVWA77Q_xA/edit?usp=sharing
 
 ## MHA Project
 ### TS-Contextual Bandit
