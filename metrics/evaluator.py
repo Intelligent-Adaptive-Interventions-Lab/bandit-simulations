@@ -2,7 +2,7 @@ import pandas as pd
 
 from typing import List, Dict, Union
 
-from datasets.policies import Policy
+from datasets.policies.policy import Policy
 from policies.types import PolicyType
 from metrics.confidence_interval import estimate_confidence_interval
 from metrics.wald_test import perfrom_wald_test

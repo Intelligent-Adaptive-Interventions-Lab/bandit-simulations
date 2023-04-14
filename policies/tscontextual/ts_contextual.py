@@ -5,6 +5,111 @@ from typing import Dict, Tuple, List, Union
 from policies.tscontextual.parameters import TSContextualParameter
 from datasets.contexts import ContextAllocateData
 
+# Draw thompson sample of (reg. coeff., variance) and also select the optimal action.
+# Simple version, not saving informations such as precision or coefficient draws.
+def thompson_sampling_contextual_simple(
+    params: TSContextualParameter, 
+	contextual_vars_dict: Dict[str, float]
+) -> Dict:
+	'''
+	thompson sampling policy with contextual information.
+	Outcome is estimated using bayesian linear regression implemented by NIG conjugate priors.
+	map dict to version
+	get the current user's context as a dict
+
+	Math Reference: https://github.com/Intelligent-Adaptive-Interventions-Lab/mooclet-engine/blob/master/documentation/Bayes%20Regression%20and%20Thompson%20Sampling.pdf
+	'''
+	# Store normal-inverse-gamma parameters
+	parameters = params.parameters
+
+	# Action space, assumed to be a json
+	action_space = parameters['action_space']
+
+	# Burn-in size
+	uniform_threshold = parameters["uniform_threshold"]
+
+	# Store regression equation string
+	regression_formula = parameters['regression_formula']
+
+	# Include intercept can be true or false
+	include_intercept = parameters['include_intercept']
+
+	# Get current priors parameters (normal-inverse-gamma)
+	mean = parameters['coef_mean']
+	cov = parameters['coef_cov']
+	variance_a = parameters['variance_a']
+	variance_b = parameters['variance_b']
+
+	# UR Cold Start
+	if uniform_threshold != 0:
+		# Decrease the burn-in size by 1
+		parameters["uniform_threshold"] -= 1
+		
+		# Uniform Randomly choose an arm and get the corresponding action space
+		action_variables = list(action_space.keys())
+		choose_ur = np.random.choice(len(action_variables) + 1)
+		best_action = dict.fromkeys(action_variables, 0)
+		if choose_ur != len(action_variables):
+			best_action[action_variables[choose_ur]] = 1
+		
+		return best_action
+
+	# Draw variance of errors
+	precesion_draw = invgamma.rvs(variance_a, 0, variance_b, size=1)
+	# Draw regression coefficients according to priors
+	coef_draw = np.random.multivariate_normal(mean, precesion_draw * cov)
+
+	## Generate all possible action combinations
+	# Initialize action set
+	all_possible_actions = [{}]
+
+	# Itterate over actions label names
+	for cur in action_space:
+		# Store set values corresponding to action labels
+		cur_options = action_space[cur]
+
+	    # Initialize list of feasible actions
+		new_possible = []
+	    # Itterate over action set
+		for a in all_possible_actions:
+		# Itterate over value sets corresponding to action labels
+			for cur_a in cur_options:
+				new_a = a.copy()
+				new_a[cur] = cur_a
+
+		        # Check if action assignment is feasible
+				if is_valid_action(new_a):
+			        # Append feasible action to list
+					new_possible.append(new_a)
+					all_possible_actions = new_possible
+
+	# # print entire action set
+	# print('all possible actions: ' + str(all_possible_actions))
+
+	## Calculate outcome for each action and find the best action
+	best_outcome = -np.inf
+	best_action = None
+
+	# print('regression formula: ' + regression_formula)
+	# Itterate of all feasible actions
+	for action in all_possible_actions:
+		independent_vars = action.copy()
+		independent_vars.update(contextual_vars_dict)
+
+		# Compute expected reward given action
+		outcome = calculate_outcome(independent_vars, coef_draw, include_intercept, regression_formula)
+
+		# Keep track of optimal (action, outcome)
+		if best_action is None or outcome > best_outcome:
+			best_outcome = outcome
+			best_action = action
+
+	# # print optimal action
+	# print('best action: ' + str(best_action))
+
+	return best_action
+
+
 # Draw thompson sample of (reg. coeff., variance) and also select the optimal action
 def thompson_sampling_contextual(
 	params: TSContextualParameter, 
